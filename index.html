@@ -252,8 +252,6 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
 .empty{color:var(--ink-faint);font-size:14px;padding:22px 0;text-align:center}
 .msg{background:var(--slate-wash);color:var(--slate);border-radius:4px;padding:12px 15px;
   font-size:13.5px;margin-bottom:18px}
-.spark{width:100%;height:84px;display:block;margin-top:6px}
-
 /* trends */
 .chart-card{background:var(--panel);border:1px solid var(--rule);border-radius:4px;
   padding:15px 16px 12px;box-shadow:0 1px 2px var(--shadow)}
@@ -266,6 +264,11 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
 .chart-sub{font-size:12px;color:var(--ink-faint);margin:2px 0 8px}
 .chart-svg{width:100%;aspect-ratio:640/150;display:block}
 .chart-empty{font-size:13px;color:var(--ink-faint);padding:16px 0;text-align:center}
+.chart-hit{cursor:crosshair;touch-action:none}
+.chart-cursor-line,.chart-cursor-dot{pointer-events:none;transition:opacity .1s ease}
+.chart-tip{position:absolute;z-index:80;pointer-events:none;background:var(--ink);color:var(--paper);
+  font-size:12px;font-weight:500;padding:5px 9px;border-radius:3px;white-space:nowrap;
+  font-variant-numeric:tabular-nums;box-shadow:0 2px 8px var(--shadow)}
 .multiples{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}
 .mini{background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:10px 12px}
 .mini-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px;
@@ -312,6 +315,7 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
   <section class="pane" id="pane-patterns" hidden></section>
   <section class="pane" id="pane-trends" hidden></section>
 </div>
+<div id="chartTip" class="chart-tip" role="status" hidden></div>
 
 <script>
 (function(){
@@ -640,7 +644,8 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       h += '<h2 class="sec">Recent weeks</h2><div class="bars">';
       var mx = Math.max(goal, Math.max.apply(null, wks.map(function(w){return w.m;})));
       wks.forEach(function(w){
-        h += '<div class="bar"><div class="bname">'+shortDate(ymd(w.s))+'–'+shortDate(ymd(addDays(w.s,6)))+'</div>'+
+        h += '<div class="bar" title="'+w.m+' of '+goal+' min goal ('+Math.round(w.m/goal*100)+'%)">'+
+          '<div class="bname">'+shortDate(ymd(w.s))+'–'+shortDate(ymd(addDays(w.s,6)))+'</div>'+
           '<div class="bt"><span style="width:'+Math.round(w.m/mx*100)+'%;background:'+(w.m>=goal?'var(--moss)':'var(--slate)')+'"></span></div>'+
           '<div class="bv">'+w.m+'</div></div>';
       });
@@ -858,30 +863,15 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
   }
 
   function sparkline(rows){
-    var pts = rows.slice().reverse().map(function(s){ return {d:s.date, v:pctOf(s)}; })
-      .filter(function(x){ return x.v!==null; });
+    var pts = rows.slice().reverse()
+      .map(function(s){ return {x:s.date, v:pctOf(s)}; })
+      .filter(function(p){ return p.v!==null; });
     if(pts.length<3) return "";
-    var w=640, hgt=84, pad=8;
-    var min=Math.min.apply(null,pts.map(function(p){return p.v;}));
-    var max=Math.max.apply(null,pts.map(function(p){return p.v;}));
-    min = Math.max(0, min-6); max = Math.min(100, max+6);
-    var span = Math.max(1, max-min);
-    var coords = pts.map(function(p,i){
-      var x = pad + i*(w-2*pad)/(pts.length-1);
-      var y = hgt-pad - (p.v-min)/span*(hgt-2*pad);
-      return [Math.round(x*10)/10, Math.round(y*10)/10];
+    return lineChart(pts, {
+      color:"var(--slate)",
+      fmt:function(v){ return Math.round(v)+"%"; },
+      ariaLabel:S.mode+" section accuracy from "+Math.round(pts[0].v)+"% to "+Math.round(pts[pts.length-1].v)+"%"
     });
-    var path = coords.map(function(c,i){ return (i?"L":"M")+c[0]+" "+c[1]; }).join(" ");
-    var dots = coords.map(function(c){
-      return '<circle cx="'+c[0]+'" cy="'+c[1]+'" r="2.6" fill="var(--slate)"/>';
-    }).join("");
-    return '<svg class="spark" viewBox="0 0 '+w+' '+hgt+'" preserveAspectRatio="none" role="img" '+
-      'aria-label="LR section accuracy from '+pts[0].v+'% to '+pts[pts.length-1].v+'%">'+
-      '<path d="'+path+'" fill="none" stroke="var(--slate)" stroke-width="2" '+
-      'stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'+dots+'</svg>'+
-      '<div class="head" style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-faint)">'+
-      '<span>'+shortDate(pts[0].d)+'</span><span>accuracy, oldest to newest</span>'+
-      '<span>'+shortDate(pts[pts.length-1].d)+'</span></div>';
   }
 
   /* ---------- trends ---------- */
@@ -936,18 +926,26 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       esc(fmt(points[points.length-1].v))+'</text>';
     var axis = '<text x="2" y="'+(padT+9)+'" font-size="10" fill="var(--ink-faint)">'+esc(fmt(max))+'</text>'+
       '<text x="2" y="'+(padT+innerH)+'" font-size="10" fill="var(--ink-faint)">'+esc(fmt(min))+'</text>';
+    var hoverData = coords.map(function(c,i){
+      return {x:c[0], y:c[1], label:shortDate(points[i].x)+': '+fmt(points[i].v)};
+    });
+    var cursor = '<line class="chart-cursor-line" x1="0" y1="'+padT+'" x2="0" y2="'+(padT+innerH)+
+      '" stroke="var(--ink-faint)" stroke-width="1" opacity="0"/>'+
+      '<circle class="chart-cursor-dot" r="5" fill="'+color+'" stroke="var(--panel)" stroke-width="2" opacity="0"/>';
+    var hit = '<rect class="chart-hit" x="0" y="0" width="'+w+'" height="'+h+
+      '" fill="transparent" data-vb-w="'+w+'" data-points=\''+esc(JSON.stringify(hoverData))+'\'/>';
     return '<svg class="chart-svg" viewBox="0 0 '+w+' '+h+'" role="img" '+
-      'aria-label="Trend from '+esc(fmt(points[0].v))+' to '+esc(fmt(points[points.length-1].v))+'">'+
+      'aria-label="'+esc(opts.ariaLabel||('Trend from '+fmt(points[0].v)+' to '+fmt(points[points.length-1].v)))+'">'+
       grid+
       '<path d="'+areaPath+'" fill="'+color+'" opacity=".1" stroke="none"/>'+
       '<path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="2" '+
       'stroke-linejoin="round" stroke-linecap="round"/>'+
-      dots+end+axis+'</svg>'+
+      dots+end+axis+cursor+hit+'</svg>'+
       '<div class="chart-sub" style="display:flex;justify-content:space-between;margin:4px 0 0">'+
       '<span>'+esc(shortDate(points[0].x))+'</span><span>'+esc(shortDate(points[points.length-1].x))+'</span></div>';
   }
 
-  function miniTrendSvg(counts, color){
+  function miniTrendSvg(counts, labels, color){
     var w=200, h=50, pad=4;
     var max = Math.max.apply(null, counts.concat([1]));
     var innerW = w-2*pad, innerH = h-2*pad;
@@ -959,12 +957,67 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     var path = coords.map(function(c,i){ return (i?"L":"M")+c[0]+" "+c[1]; }).join(" ");
     var areaPath = path+" L"+coords[coords.length-1][0]+" "+(pad+innerH)+" L"+coords[0][0]+" "+(pad+innerH)+" Z";
     var last = coords[coords.length-1];
+    var hoverData = coords.map(function(c,i){ return {x:c[0], y:c[1], label:labels[i]}; });
+    var cursor = '<circle class="chart-cursor-dot" r="4" fill="'+color+'" stroke="var(--panel)" stroke-width="1.5" opacity="0"/>';
+    var hit = '<rect class="chart-hit" x="0" y="0" width="'+w+'" height="'+h+
+      '" fill="transparent" data-vb-w="'+w+'" data-points=\''+esc(JSON.stringify(hoverData))+'\'/>';
     return '<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-hidden="true">'+
       '<path d="'+areaPath+'" fill="'+color+'" opacity=".12" stroke="none"/>'+
       '<path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="2" '+
       'stroke-linejoin="round" stroke-linecap="round"/>'+
       '<circle cx="'+last[0]+'" cy="'+last[1]+'" r="3" fill="'+color+'" stroke="var(--panel)" stroke-width="1.5"/>'+
-      '</svg>';
+      cursor+hit+'</svg>';
+  }
+
+  function initChartHover(){
+    var tip = el("chartTip");
+    function hide(){ if(tip) tip.hidden = true; clearCursors(); }
+    function clearCursors(){
+      document.querySelectorAll(".chart-cursor-line, .chart-cursor-dot").forEach(function(n){
+        n.setAttribute("opacity","0");
+      });
+    }
+    function handle(ev){
+      var target = ev.target && ev.target.closest ? ev.target.closest(".chart-hit") : null;
+      if(!target){ hide(); return; }
+      var pts;
+      try{ pts = JSON.parse(target.getAttribute("data-points")); }catch(e){ hide(); return; }
+      if(!pts || !pts.length){ hide(); return; }
+      var svg = target.closest("svg");
+      var rect = svg.getBoundingClientRect();
+      if(!rect.width){ hide(); return; }
+      var vbW = parseFloat(target.getAttribute("data-vb-w"))||640;
+      var scale = vbW/rect.width;
+      var clientX = ev.clientX!==undefined ? ev.clientX :
+        (ev.touches && ev.touches[0] ? ev.touches[0].clientX : null);
+      var clientY = ev.clientY!==undefined ? ev.clientY :
+        (ev.touches && ev.touches[0] ? ev.touches[0].clientY : null);
+      if(clientX===null){ hide(); return; }
+      var localX = (clientX-rect.left)*scale;
+      var nearest = pts[0], nd = Math.abs(pts[0].x-localX);
+      pts.forEach(function(p){ var d = Math.abs(p.x-localX); if(d<nd){ nd = d; nearest = p; } });
+      clearCursors();
+      var line = svg.querySelector(".chart-cursor-line");
+      var dot = svg.querySelector(".chart-cursor-dot");
+      if(line){ line.setAttribute("x1", nearest.x); line.setAttribute("x2", nearest.x); line.setAttribute("opacity","1"); }
+      if(dot){ dot.setAttribute("cx", nearest.x); dot.setAttribute("cy", nearest.y); dot.setAttribute("opacity","1"); }
+      if(tip){
+        tip.textContent = nearest.label;
+        var left = clientX+14;
+        if(left + 160 > window.innerWidth) left = clientX-160;
+        var top = (clientY!==null ? clientY : rect.top)-30;
+        tip.style.left = (left+window.scrollX)+"px";
+        tip.style.top = (Math.max(4, top)+window.scrollY)+"px";
+        tip.hidden = false;
+      }
+    }
+    document.addEventListener("pointermove", handle);
+    document.addEventListener("pointerdown", handle);
+    document.addEventListener("pointerup", hide);
+    document.addEventListener("pointercancel", hide);
+    document.addEventListener("pointerleave", function(ev){
+      if(!ev.relatedTarget) hide();
+    });
   }
 
   function renderTrends(){
@@ -1039,10 +1092,13 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
         var byWeek = {};
         entries.forEach(function(e){ var wk = weekStartOf(e.date); byWeek[wk] = (byWeek[wk]||0)+1; });
         var counts = allWeeks.map(function(wk){ return byWeek[wk]||0; });
+        var labels = allWeeks.map(function(wk,i){
+          return "Week of "+shortDate(wk)+": "+counts[i]+" miss"+(counts[i]===1?"":"es");
+        });
         h += '<div class="mini"><div class="mini-top"><span class="mini-name" title="'+esc(t)+'">'+esc(t)+'</span>'+
           '<span class="mini-count">'+entries.length+'</span></div>'+
           (allWeeks.length>1
-            ? miniTrendSvg(counts, "var(--brick)")
+            ? miniTrendSvg(counts, labels, "var(--brick)")
             : '<div class="chart-empty" style="padding:4px 0;font-size:11.5px">Needs more weeks of data</div>')+
           '</div>';
       });
@@ -1075,7 +1131,9 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     var mx = byType[types[0]];
     h += '<h2 class="sec">Where your '+S.mode+' misses are</h2><div class="bars">';
     types.slice(0,14).forEach(function(t){
-      h += '<div class="bar"><div class="bname" title="'+esc(t)+'">'+esc(t)+'</div>'+
+      var typePct = Math.round(byType[t]/pool.length*100);
+      h += '<div class="bar" title="'+esc(t)+': '+byType[t]+' of '+pool.length+' misses ('+typePct+'%)">'+
+        '<div class="bname">'+esc(t)+'</div>'+
         '<div class="bt"><span style="width:'+Math.round(byType[t]/mx*100)+'%"></span></div>'+
         '<div class="bv">'+byType[t]+'</div></div>';
     });
@@ -1084,7 +1142,9 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     h += '<h2 class="sec">Difficulty of what you miss</h2><div class="bars">';
     var lmx = Math.max(1, Math.max(byLevel[1],byLevel[2],byLevel[3],byLevel[4],byLevel[5]));
     for(var i=1;i<=5;i++){
-      h += '<div class="bar"><div class="bname">Level '+i+'</div>'+
+      var levelPct = pool.length ? Math.round(byLevel[i]/pool.length*100) : 0;
+      h += '<div class="bar" title="Level '+i+': '+byLevel[i]+' of '+pool.length+' misses ('+levelPct+'%)">'+
+        '<div class="bname">Level '+i+'</div>'+
         '<div class="bt"><span style="width:'+Math.round(byLevel[i]/lmx*100)+'%;background:'+
         (i<=2?'var(--brick)':'var(--slate)')+'"></span></div><div class="bv">'+byLevel[i]+'</div></div>';
     }
@@ -1405,6 +1465,7 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
 
   /* ---------- boot ---------- */
   renderCountdown();
+  initChartHover();
   el("pane-today").innerHTML = '<div class="empty">Loading your schedule…</div>';
 
   (async function(){
