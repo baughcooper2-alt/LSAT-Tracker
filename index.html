@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LSAT Tracker</title>
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem("lsat-theme");
+    if(t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+  }catch(e){}
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1471,6 +1479,22 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       if(f) restoreBackup(f);
       ev.target.value = "";
       return;
+    }
+  });
+
+  /* ---------- theme toggle ---------- */
+  function setTheme(t){
+    document.documentElement.setAttribute("data-theme", t);
+    try{ localStorage.setItem("lsat-theme", t); }catch(e){}
+  }
+  function toggleTheme(){
+    var current = document.documentElement.getAttribute("data-theme")==="dark" ? "dark" : "light";
+    setTheme(current==="dark" ? "light" : "dark");
+  }
+  document.addEventListener("keydown", function(ev){
+    if((ev.metaKey || ev.ctrlKey) && !ev.altKey && ev.key === "1"){
+      ev.preventDefault();
+      toggleTheme();
     }
   });
 
