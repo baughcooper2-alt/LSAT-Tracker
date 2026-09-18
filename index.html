@@ -249,6 +249,10 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
 .spark{width:100%;height:84px;display:block;margin-top:6px}
 .del{background:none;border:0;color:var(--ink-faint);font-size:12.5px;padding:2px 4px}
 .del:hover{color:var(--brick)}
+
+/* backup / restore */
+.databar{display:flex;justify-content:flex-end;gap:8px;margin:12px 0 18px}
+.databar .btn.ghost{padding:6px 12px;font-size:12.5px}
 @media (prefers-reduced-motion:no-preference){.track .fill{transition:width .3s ease}}
 </style>
 </head>
@@ -258,6 +262,11 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     <h1>LSAT Tracker</h1>
     <div class="countdown" id="countdown"></div>
   </header>
+  <div class="databar">
+    <button class="btn ghost small" id="backupBtn" type="button">Back up data</button>
+    <button class="btn ghost small" id="restoreBtn" type="button">Restore backup</button>
+    <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+  </div>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="today" aria-selected="true">Today</button>
     <button role="tab" data-tab="log" aria-selected="false">Day log</button>
@@ -1060,9 +1069,89 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     }).catch(handleWriteError);
   }
 
+  /* ---------- backup / restore ---------- */
+  function stripId(obj){
+    var c = Object.assign({}, obj);
+    var id = c.id || c._id;
+    delete c.id; delete c._id;
+    return {id:id, body:c};
+  }
+
+  async function backupData(){
+    if(!S.db){ banner("Storage isn't available in this view, so there's nothing to back up."); return; }
+    var data = {
+      exported: todayYmd(),
+      config: S.config || null,
+      tasks: sortedTasks(),
+      journal: S.journal.map(function(e){ var c=Object.assign({},e); c.id=c._id; delete c._id; return c; }),
+      scores: S.scores.map(function(s){ var c=Object.assign({},s); c.id=c._id; delete c._id; return c; })
+    };
+    var json = JSON.stringify(data, null, 2);
+    try{
+      if(!window.claude || typeof window.claude.use !== "function") throw new Error("no runtime");
+      var downloads = await window.claude.use("downloads");
+      if(!downloads) throw new Error("no downloads");
+      await downloads.save({filename:"lsat-tracker-backup-"+todayYmd()+".json", data:json});
+    }catch(e){
+      banner("Backing up isn't available in this view.");
+    }
+  }
+
+  function restoreBackup(file){
+    if(!S.db){ banner("Storage isn't available in this view, so a backup can't be restored."); return; }
+    var reader = new FileReader();
+    reader.onload = function(){
+      var data;
+      try{ data = JSON.parse(reader.result); }
+      catch(e){ banner("That file isn't a valid backup — it couldn't be read as JSON."); return; }
+
+      var tasks = Array.isArray(data.tasks) ? data.tasks : [];
+      var journal = Array.isArray(data.journal) ? data.journal : [];
+      var scores = Array.isArray(data.scores) ? data.scores : [];
+      var cfg = data.config && typeof data.config === "object" ? data.config : null;
+
+      if(!tasks.length && !journal.length && !scores.length && !cfg){
+        banner("That file doesn't look like a tracker backup.");
+        return;
+      }
+      var msg = "Restore "+tasks.length+" logged day"+(tasks.length===1?"":"s")+", "+
+        journal.length+" wrong-answer entr"+(journal.length===1?"y":"ies")+", and "+
+        scores.length+" score"+(scores.length===1?"":"s")+"? This adds to what's already saved and "+
+        "overwrites any entry with a matching date or id.";
+      if(!window.confirm(msg)) return;
+
+      var writes = [];
+      if(cfg) writes.push(S.db.doc("meta/config").set(cfg));
+      tasks.forEach(function(t){
+        if(!t.date) return;
+        var body = Object.assign({}, t);
+        delete body._id; delete body.id;
+        writes.push(S.db.doc("tasks/"+t.date).set(body));
+      });
+      journal.forEach(function(e){
+        var r = stripId(e);
+        writes.push(r.id ? S.db.doc("journal/"+r.id).set(r.body) : S.db.collection("journal").add(r.body));
+      });
+      scores.forEach(function(s){
+        var r = stripId(s);
+        writes.push(r.id ? S.db.doc("scores/"+r.id).set(r.body) : S.db.collection("scores").add(r.body));
+      });
+
+      Promise.all(writes).then(function(){
+        banner("Backup restored.");
+      }).catch(function(){
+        banner("Some entries in that backup could not be saved.");
+      });
+    };
+    reader.onerror = function(){ banner("Couldn't read that file."); };
+    reader.readAsText(file);
+  }
+
   /* ---------- events ---------- */
   document.addEventListener("click", function(ev){
     var t = ev.target;
+    if(t.id === "backupBtn"){ backupData(); return; }
+    if(t.id === "restoreBtn"){ el("restoreFile").click(); return; }
     if(t.matches("nav.tabs button")){
       S.tab = t.getAttribute("data-tab");
       document.querySelectorAll("nav.tabs button").forEach(function(b){
@@ -1109,6 +1198,12 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
   document.addEventListener("change", function(ev){
     if(ev.target.id === "j-mode"){ fillTypeSelect(); return; }
     if(ev.target.id === "j-filter"){ S.jFilter = ev.target.value; renderJournal(); return; }
+    if(ev.target.id === "restoreFile"){
+      var f = ev.target.files && ev.target.files[0];
+      if(f) restoreBackup(f);
+      ev.target.value = "";
+      return;
+    }
   });
 
   /* ---------- boot ---------- */

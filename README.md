@@ -19,6 +19,11 @@ Built to replace a spreadsheet, so everything is one HTML file with no build ste
 An LR / RC toggle carries across Wrong answers, Scores, and Patterns. Full practice
 tests sit outside that split, since a PT score isn't one section type.
 
+"Back up data" (top right) exports every collection — config, tasks, journal, scores —
+as one JSON file via the artifact host's `downloads` capability. "Restore backup" reads
+a JSON file of that same shape back in: tasks and journal/score entries with a matching
+date or id are overwritten, everything else is added.
+
 ## Important: this needs the Claude artifact runtime
 
 The page stores data through `window.claude.use("db")`, a capability provided by the
