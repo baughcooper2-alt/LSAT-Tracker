@@ -457,7 +457,8 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     if(!t0 || (!t0.done && !t0.skip)) d = addDays(d,-1);
     while(guard++ < 400){
       var t = S.tasks.get(ymd(d));
-      if(t && (t.done || t.skip)) { n++; d = addDays(d,-1); }
+      if(t && t.done){ n++; d = addDays(d,-1); }
+      else if(t && t.skip){ d = addDays(d,-1); } // rest day: doesn't count, doesn't break the streak
       else break;
     }
     var carried = cfg("priorStreakInto", 0);
