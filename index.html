@@ -93,9 +93,10 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .num{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 
 /* masthead */
-header.mast{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
-  border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:2px}
+header.mast{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
+  border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:20px}
 .mast h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:27px;margin:0;letter-spacing:-.01em}
+.mast-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
 .countdown{font-size:13px;color:var(--ink-soft);text-align:right;line-height:1.3}
 .countdown b{font-family:'Newsreader',Georgia,serif;font-weight:600;font-size:20px;color:var(--gold);
   font-variant-numeric:tabular-nums}
@@ -118,15 +119,17 @@ h2.sec:first-child{margin-top:0}
 
 /* today card */
 .today{background:var(--panel);border:1px solid var(--rule);border-left:3px solid var(--gold);
-  border-radius:4px;padding:18px;box-shadow:0 1px 2px var(--shadow)}
+  border-radius:4px;padding:18px;box-shadow:0 1px 3px var(--shadow)}
 .today .when{font-size:13px;color:var(--ink-faint);margin-bottom:3px}
 .today .what{font-family:'Newsreader',Georgia,serif;font-size:22px;line-height:1.25;margin:0 0 4px}
 .today .planned{font-size:13.5px;color:var(--ink-soft)}
 .today.rest{border-left-color:var(--ink-faint)}
 .today.rest .what{color:var(--ink-soft)}
-.logrow{display:flex;gap:8px;align-items:center;margin-top:15px;flex-wrap:wrap}
+.logrow{display:flex;gap:10px;align-items:center;margin-top:15px;flex-wrap:wrap}
 .logrow label{font-size:13.5px;color:var(--ink-soft)}
-.logrow input{width:78px;text-align:right}
+.logctl{display:flex}
+.logctl input{width:72px;text-align:right;border-radius:3px 0 0 3px;border-right:0;position:relative;z-index:1}
+.logctl .btn{border-radius:0 3px 3px 0}
 .btn{-webkit-appearance:none;appearance:none;display:inline-block;line-height:1.2;
   white-space:nowrap;background:var(--slate);color:#fff;border:0;border-radius:3px;
   padding:9px 16px;font-weight:500}
@@ -139,8 +142,10 @@ h2.sec:first-child{margin-top:0}
 .btn.small{padding:6px 11px;font-size:13.5px}
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
   overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.done-flag{display:inline-flex;align-items:center;gap:7px;background:var(--moss-wash);color:var(--moss);
-  border-radius:3px;padding:7px 12px;font-size:13.5px;margin-top:15px;font-weight:500}
+.done-flag{display:inline-flex;align-items:center;gap:8px;background:var(--moss-wash);color:var(--moss);
+  border-radius:3px;padding:7px 12px 7px 9px;font-size:13.5px;margin-top:15px;font-weight:500}
+.done-flag .check{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
+  border-radius:50%;background:var(--moss);color:var(--panel);font-size:10px;line-height:1;flex:none}
 
 /* stat strip */
 .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule-soft);
@@ -148,12 +153,12 @@ h2.sec:first-child{margin-top:0}
 .strip div{background:var(--panel);padding:12px 10px}
 .strip .v{font-family:'Newsreader',Georgia,serif;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
 .strip .v.accent{color:var(--gold)}
-.strip .k{font-size:11.5px;color:var(--ink-faint);margin-top:3px}
+.strip .k{font-size:12px;color:var(--ink-faint);margin-top:3px}
 @media (max-width:520px){.strip{grid-template-columns:repeat(2,1fr)}}
 
 /* goal bar */
 .goal{margin-top:20px;background:var(--panel);border:1px solid var(--rule);border-radius:4px;
-  padding:15px 16px;box-shadow:0 1px 2px var(--shadow)}
+  padding:15px 16px}
 .goal .head{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;
   color:var(--ink-soft);margin-bottom:7px}
 .goal .head b{font-family:'Newsreader',Georgia,serif;font-size:17px;color:var(--ink);font-weight:600;
@@ -164,7 +169,7 @@ h2.sec:first-child{margin-top:0}
 
 /* schedule list */
 ul.sched{list-style:none;margin:0;padding:2px 14px;background:var(--panel);border:1px solid var(--rule);
-  border-radius:4px;box-shadow:0 1px 2px var(--shadow)}
+  border-radius:4px}
 ul.sched li{display:flex;gap:12px;align-items:flex-start;padding:10px 2px;border-bottom:1px solid var(--rule-soft)}
 ul.sched li:last-child{border-bottom:0}
 ul.sched .d{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;font-size:13px;
@@ -177,7 +182,7 @@ ul.sched li.isdone .t{color:var(--ink-soft)}
 
 /* journal */
 .entries{background:var(--panel);border:1px solid var(--rule);border-radius:4px;
-  padding:2px 16px;box-shadow:0 1px 2px var(--shadow)}
+  padding:2px 16px}
 .entry{border-bottom:1px solid var(--rule-soft);padding:14px 0}
 .entry:last-child{border-bottom:0}
 .entry .top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
@@ -206,13 +211,13 @@ details.add[open] > summary::before{content:"– "}
 
 /* patterns */
 .bars{display:grid;gap:9px;background:var(--panel);border:1px solid var(--rule);border-radius:4px;
-  padding:15px 16px;box-shadow:0 1px 2px var(--shadow)}
-.bar{display:grid;grid-template-columns:132px 1fr 30px;gap:10px;align-items:center;font-size:13.5px}
+  padding:15px 16px}
+.bar{display:grid;grid-template-columns:156px 1fr 28px;gap:10px;align-items:center;font-size:13.5px}
 .bar .bname{text-align:right;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bar .bt{height:14px;background:var(--rule-soft);border-radius:2px}
 .bar .bt span{display:block;height:100%;background:var(--brick);border-radius:2px}
-.bar .bv{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;color:var(--ink-soft)}
-@media (max-width:520px){.bar{grid-template-columns:96px 1fr 26px;font-size:12.5px}}
+.bar .bv{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;color:var(--ink-soft);text-align:right}
+@media (max-width:520px){.bar{grid-template-columns:104px 1fr 24px;font-size:12px}}
 
 /* LR / RC switch */
 .seg{display:inline-flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:20px}
@@ -231,7 +236,7 @@ details.add[open] > summary::before{content:"– "}
 .weekhead .tot.hit{color:var(--moss)}
 .weekhead .tot.miss{color:var(--ink-faint)}
 ul.days{list-style:none;margin:0;padding:2px 14px;background:var(--panel);border:1px solid var(--rule);
-  border-radius:4px;box-shadow:0 1px 2px var(--shadow)}
+  border-radius:4px}
 ul.days li{display:flex;gap:11px;align-items:baseline;padding:9px 2px;border-bottom:1px solid var(--rule-soft)}
 ul.days li:last-child{border-bottom:0}
 ul.days .d{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;font-size:13px;
@@ -247,7 +252,7 @@ ul.days li.gap .mins{color:var(--brick)}
 
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 .scroll{overflow-x:auto;background:var(--panel);border:1px solid var(--rule);border-radius:4px;
-  padding:4px 16px;box-shadow:0 1px 2px var(--shadow)}
+  padding:4px 16px}
 th{text-align:left;font-weight:500;color:var(--ink-faint);font-size:12px;
   border-bottom:1px solid var(--rule);padding:0 10px 7px 0;white-space:nowrap}
 td{padding:9px 10px 9px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;white-space:nowrap}
@@ -262,7 +267,7 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
   font-size:13.5px;margin-bottom:18px}
 /* trends */
 .chart-card{background:var(--panel);border:1px solid var(--rule);border-radius:4px;
-  padding:15px 16px 12px;box-shadow:0 1px 2px var(--shadow)}
+  padding:15px 16px 12px}
 .chart-card + .chart-card{margin-top:14px}
 .chart-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .chart-head h3{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:15px;
@@ -289,7 +294,7 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
 .del:hover{color:var(--brick)}
 
 /* backup / restore */
-.databar{display:flex;justify-content:flex-end;gap:8px;margin:12px 0 18px}
+.databar{display:flex;gap:8px}
 .databar .btn.ghost{padding:6px 12px;font-size:12.5px}
 @media (prefers-reduced-motion:no-preference){.track .fill{transition:width .3s ease}}
 </style>
@@ -298,13 +303,15 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
 <div class="wrap">
   <header class="mast">
     <h1>LSAT Tracker</h1>
-    <div class="countdown" id="countdown"></div>
+    <div class="mast-side">
+      <div class="databar">
+        <button class="btn ghost small" id="backupBtn" type="button"><span>Backup</span></button>
+        <button class="btn ghost small" id="restoreBtn" type="button"><span>Restore</span></button>
+        <input type="file" id="restoreFile" class="visually-hidden" accept="application/json,.json">
+      </div>
+      <div class="countdown" id="countdown"></div>
+    </div>
   </header>
-  <div class="databar">
-    <button class="btn ghost small" id="backupBtn" type="button"><span>Backup</span></button>
-    <button class="btn ghost small" id="restoreBtn" type="button"><span>Restore</span></button>
-    <input type="file" id="restoreFile" class="visually-hidden" accept="application/json,.json">
-  </div>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="today" aria-selected="true">Today</button>
     <button role="tab" data-tab="log" aria-selected="false">Day log</button>
@@ -695,13 +702,14 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
   function logControls(date, t){
     if(!S.writable) return "";
     if(t && t.done){
-      return '<div class="done-flag">Logged'+(t.actualMin?' &middot; '+t.actualMin+' min':'')+
+      return '<div class="done-flag"><span class="check">✓</span>Logged'+
+        (t.actualMin?' &middot; '+t.actualMin+' min':'')+
         '</div> <button class="del" data-undo="'+date+'">undo</button>';
     }
     var suggested = t && t.plannedMin ? t.plannedMin : "";
-    return '<div class="logrow"><label for="minIn">Minutes</label>'+
+    return '<div class="logrow"><label for="minIn">Minutes</label><div class="logctl">'+
       '<input id="minIn" class="num" type="number" min="0" step="5" value="'+suggested+'" inputmode="numeric">'+
-      '<button class="btn" data-log="'+date+'">Mark done</button></div>';
+      '<button class="btn" data-log="'+date+'">Mark done</button></div></div>';
   }
 
   /* ---------- journal ---------- */
@@ -938,8 +946,8 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     var end = '<text x="'+Math.max(padL, Math.min(last[0], w-padR-28))+'" y="'+(labelUp?last[1]-8:last[1]+16)+
       '" font-size="11" font-family="Newsreader,Georgia,serif" fill="'+color+'">'+
       esc(fmt(points[points.length-1].v))+'</text>';
-    var axis = '<text x="2" y="'+(padT+9)+'" font-size="10" fill="var(--ink-faint)">'+esc(fmt(max))+'</text>'+
-      '<text x="2" y="'+(padT+innerH)+'" font-size="10" fill="var(--ink-faint)">'+esc(fmt(min))+'</text>';
+    var axis = '<text x="2" y="'+(padT+9)+'" font-size="11" fill="var(--ink-faint)">'+esc(fmt(max))+'</text>'+
+      '<text x="2" y="'+(padT+innerH)+'" font-size="11" fill="var(--ink-faint)">'+esc(fmt(min))+'</text>';
     var hoverData = coords.map(function(c,i){
       return {x:c[0], y:c[1], label:shortDate(points[i].x)+': '+fmt(points[i].v)};
     });
