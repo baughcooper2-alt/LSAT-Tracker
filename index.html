@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LSAT Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f7f5f0;
+  --panel:#fffefb;
+  --ink:#20242b;
+  --ink-soft:#5d6470;
+  --ink-faint:#8c939d;
+  --rule:#ddd8cd;
+  --rule-soft:#ebe7de;
+  --slate:#3b5f7a;
+  --slate-wash:#e6edf2;
+  --brick:#9e3b2f;
+  --brick-wash:#f3e3e0;
+  --moss:#4a7a5c;
+  --moss-wash:#e4eee7;
+  --shadow:rgba(32,36,43,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#15181d;
+    --panel:#1c2026;
+    --ink:#e7e3da;
+    --ink-soft:#a2a9b4;
+    --ink-faint:#757c87;
+    --rule:#2f353d;
+    --rule-soft:#262b32;
+    --slate:#7fa8c4;
+    --slate-wash:#22303a;
+    --brick:#d98a7c;
+    --brick-wash:#33241f;
+    --moss:#8cbf9f;
+    --moss-wash:#1e2b23;
+    --shadow:rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15181d;
+  --panel:#1c2026;
+  --ink:#e7e3da;
+  --ink-soft:#a2a9b4;
+  --ink-faint:#757c87;
+  --rule:#2f353d;
+  --rule-soft:#262b32;
+  --slate:#7fa8c4;
+  --slate-wash:#22303a;
+  --brick:#d98a7c;
+  --brick-wash:#33241f;
+  --moss:#8cbf9f;
+  --moss-wash:#1e2b23;
+  --shadow:rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Archivo','Helvetica Neue',Helvetica,Arial,sans-serif;
+  font-size:15px;
+  line-height:1.5;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:740px;margin:0 auto;padding:22px 18px 70px}
+img{max-width:100%}
+button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink);background:var(--panel);
+  border:1px solid var(--rule);border-radius:3px;padding:8px 9px;width:100%}
+textarea{resize:vertical;line-height:1.45}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--slate);outline-offset:1px}
+.num{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+/* masthead */
+header.mast{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:2px}
+.mast h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:27px;margin:0;letter-spacing:-.01em}
+.countdown{font-size:13px;color:var(--ink-soft);text-align:right;line-height:1.3}
+.countdown b{font-family:'Newsreader',Georgia,serif;font-weight:600;font-size:20px;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+
+/* tabs */
+nav.tabs{display:flex;gap:2px;border-bottom:1px solid var(--rule);margin-bottom:22px;overflow-x:auto}
+nav.tabs button{background:none;border:0;border-bottom:2px solid transparent;
+  padding:11px 13px;color:var(--ink-soft);white-space:nowrap;margin-bottom:-1px}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--slate);font-weight:500}
+
+section.pane[hidden]{display:none}
+h2.sec{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:19px;
+  margin:30px 0 11px;padding-bottom:5px;border-bottom:1px solid var(--rule-soft)}
+h2.sec:first-child{margin-top:0}
+
+/* today card */
+.today{background:var(--panel);border:1px solid var(--rule);border-left:3px solid var(--slate);
+  border-radius:4px;padding:18px;box-shadow:0 1px 2px var(--shadow)}
+.today .when{font-size:13px;color:var(--ink-faint);margin-bottom:3px}
+.today .what{font-family:'Newsreader',Georgia,serif;font-size:22px;line-height:1.25;margin:0 0 4px}
+.today .planned{font-size:13.5px;color:var(--ink-soft)}
+.today.rest{border-left-color:var(--ink-faint)}
+.today.rest .what{color:var(--ink-soft)}
+.logrow{display:flex;gap:8px;align-items:center;margin-top:15px;flex-wrap:wrap}
+.logrow label{font-size:13.5px;color:var(--ink-soft)}
+.logrow input{width:78px;text-align:right}
+.btn{background:var(--slate);color:#fff;border:0;border-radius:3px;padding:9px 16px;font-weight:500}
+:root[data-theme="dark"] .btn,
+:root:not([data-theme="light"]) .btn{color:#131820}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .btn{color:#fff}}
+.btn.ghost{background:none;color:var(--slate);border:1px solid var(--rule);font-weight:400}
+.btn.small{padding:6px 11px;font-size:13.5px}
+.done-flag{display:inline-flex;align-items:center;gap:7px;background:var(--moss-wash);color:var(--moss);
+  border-radius:3px;padding:7px 12px;font-size:13.5px;margin-top:15px;font-weight:500}
+
+/* stat strip */
+.strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule-soft);
+  border:1px solid var(--rule-soft);border-radius:4px;margin-top:16px;overflow:hidden}
+.strip div{background:var(--panel);padding:12px 10px}
+.strip .v{font-family:'Newsreader',Georgia,serif;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
+.strip .k{font-size:11.5px;color:var(--ink-faint);margin-top:3px}
+@media (max-width:520px){.strip{grid-template-columns:repeat(2,1fr)}}
+
+/* goal bar */
+.goal{margin-top:20px}
+.goal .head{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;
+  color:var(--ink-soft);margin-bottom:7px}
+.goal .head b{font-family:'Newsreader',Georgia,serif;font-size:17px;color:var(--ink);font-weight:600;
+  font-variant-numeric:tabular-nums}
+.track{height:9px;background:var(--rule-soft);border-radius:2px;overflow:hidden;position:relative}
+.track .fill{height:100%;background:var(--slate);border-radius:2px}
+.track .fill.over{background:var(--moss)}
+
+/* schedule list */
+ul.sched{list-style:none;margin:0;padding:0}
+ul.sched li{display:flex;gap:12px;align-items:flex-start;padding:10px 2px;border-bottom:1px solid var(--rule-soft)}
+ul.sched .d{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;font-size:13px;
+  color:var(--ink-faint);width:54px;flex:none;padding-top:2px}
+ul.sched .t{flex:1;font-size:14px;line-height:1.4}
+ul.sched .m{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;font-size:14px;
+  color:var(--ink-soft);flex:none}
+ul.sched li.skip .t{color:var(--ink-faint)}
+ul.sched li.isdone .t{color:var(--ink-soft)}
+
+/* journal */
+.entry{border-bottom:1px solid var(--rule-soft);padding:14px 0}
+.entry .top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+.entry .qt{font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600}
+.entry .meta{font-size:12.5px;color:var(--ink-faint);margin-left:auto;font-variant-numeric:tabular-nums}
+.pips{display:inline-flex;gap:2px;align-items:center}
+.pips i{width:6px;height:11px;background:var(--rule);border-radius:1px;display:block}
+.pips i.on{background:var(--brick)}
+.entry p{margin:5px 0;font-size:14px;line-height:1.5}
+.entry p .lbl{color:var(--ink-faint);font-size:12.5px;display:block;margin-bottom:1px}
+.entry p.why{color:var(--ink-soft)}
+.tag{font-size:11.5px;padding:2px 7px;border-radius:2px;background:var(--rule-soft);color:var(--ink-soft)}
+.tag.rc{background:var(--slate-wash);color:var(--slate)}
+
+/* forms */
+details.add{margin-bottom:20px;border:1px solid var(--rule);border-radius:4px;background:var(--panel)}
+details.add > summary{cursor:pointer;padding:12px 15px;font-weight:500;list-style:none;font-size:14.5px}
+details.add > summary::-webkit-details-marker{display:none}
+details.add > summary::before{content:"+ ";color:var(--slate);font-weight:600}
+details.add[open] > summary::before{content:"– "}
+.form{padding:0 15px 15px;display:grid;gap:11px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media (max-width:520px){.grid3{grid-template-columns:1fr 1fr}}
+.f label{display:block;font-size:12.5px;color:var(--ink-faint);margin-bottom:4px}
+
+/* patterns */
+.bars{display:grid;gap:7px}
+.bar{display:grid;grid-template-columns:132px 1fr 30px;gap:10px;align-items:center;font-size:13.5px}
+.bar .bname{text-align:right;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .bt{height:14px;background:var(--rule-soft);border-radius:2px}
+.bar .bt span{display:block;height:100%;background:var(--brick);border-radius:2px}
+.bar .bv{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+@media (max-width:520px){.bar{grid-template-columns:96px 1fr 26px;font-size:12.5px}}
+
+/* LR / RC switch */
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:20px}
+.seg button{background:var(--panel);border:0;padding:8px 20px;color:var(--ink-soft);
+  border-right:1px solid var(--rule)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--slate);color:var(--paper);font-weight:500}
+
+/* week grouping in the day log */
+.week{margin-bottom:26px}
+.weekhead{display:flex;align-items:baseline;gap:10px;padding-bottom:6px;
+  border-bottom:1px solid var(--rule)}
+.weekhead .wk{font-family:'Newsreader',Georgia,serif;font-size:16px}
+.weekhead .tot{margin-left:auto;font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;
+  font-size:16px}
+.weekhead .tot.hit{color:var(--moss)}
+.weekhead .tot.miss{color:var(--ink-faint)}
+ul.days{list-style:none;margin:0;padding:0}
+ul.days li{display:flex;gap:11px;align-items:baseline;padding:9px 2px;border-bottom:1px solid var(--rule-soft)}
+ul.days .d{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;font-size:13px;
+  color:var(--ink-faint);width:66px;flex:none}
+ul.days .t{flex:1;font-size:14px;line-height:1.4}
+ul.days .mins{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums;font-size:14px;flex:none;
+  text-align:right;min-width:58px}
+ul.days li.logged .mins{color:var(--moss)}
+ul.days li.rest .t,ul.days li.rest .mins{color:var(--ink-faint)}
+ul.days li.gap .t{color:var(--ink-faint)}
+ul.days li.gap .mins{color:var(--brick)}
+.oldweek{font-size:13px;color:var(--ink-faint);padding:9px 2px}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+.scroll{overflow-x:auto}
+th{text-align:left;font-weight:500;color:var(--ink-faint);font-size:12px;
+  border-bottom:1px solid var(--rule);padding:0 10px 7px 0;white-space:nowrap}
+td{padding:9px 10px 9px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;white-space:nowrap}
+td.note{white-space:normal;color:var(--ink-soft);min-width:150px}
+td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
+
+.note-block{background:var(--brick-wash);border-radius:4px;padding:13px 15px;font-size:13.5px;
+  line-height:1.55;color:var(--ink-soft);margin-top:14px}
+.note-block b{color:var(--ink)}
+.empty{color:var(--ink-faint);font-size:14px;padding:22px 0;text-align:center}
+.msg{background:var(--slate-wash);color:var(--slate);border-radius:4px;padding:12px 15px;
+  font-size:13.5px;margin-bottom:18px}
+.spark{width:100%;height:84px;display:block;margin-top:6px}
+.del{background:none;border:0;color:var(--ink-faint);font-size:12.5px;padding:2px 4px}
+.del:hover{color:var(--brick)}
+@media (prefers-reduced-motion:no-preference){.track .fill{transition:width .3s ease}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <h1>LSAT Tracker</h1>
+    <div class="countdown" id="countdown"></div>
+  </header>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="today" aria-selected="true">Today</button>
+    <button role="tab" data-tab="log" aria-selected="false">Day log</button>
+    <button role="tab" data-tab="journal" aria-selected="false">Wrong answers</button>
+    <button role="tab" data-tab="scores" aria-selected="false">Scores</button>
+    <button role="tab" data-tab="patterns" aria-selected="false">Patterns</button>
+  </nav>
+
+  <div id="banner"></div>
+
+  <section class="pane" id="pane-today"></section>
+  <section class="pane" id="pane-log" hidden></section>
+  <section class="pane" id="pane-journal" hidden></section>
+  <section class="pane" id="pane-scores" hidden></section>
+  <section class="pane" id="pane-patterns" hidden></section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var LR_TYPES = ["Flaw","Necessary Assumption","Sufficient Assumption","Strengthen","Weaken",
+    "Evaluate","Principle Strengthen","Principle Conform","Must Be True","Must Be False",
+    "Most Supported","Main Conclusion","Role","Method","Parallel","Parallel Flaw","Paradox",
+    "Agree/Disagree","Point at Issue","Conclusion Match"];
+  var RC_TYPES = ["Main Point","Primary Purpose","Organization","Method","Local Purpose",
+    "Meaning in Context","Paragraph Purpose","Locate Detail","Inference","Must Be False",
+    "Author Opinion","Non-Author Opinion","Author's Attitude","Principle","Analogy","Application",
+    "Add to the Passage"];
+
+  var TEST_DATE = "2026-11-11";
+
+  var S = {
+    db:null, ready:false, writable:true,
+    config:null,
+    tasks:new Map(),
+    journal:[],
+    scores:[],
+    loaded:{tasks:false, journal:false, scores:false},
+    tab:"today",
+    mode:"LR",
+    jFilter:"all"
+  };
+
+  /* ---------- date helpers ---------- */
+  function pad(n){ return n<10 ? "0"+n : ""+n; }
+  function ymd(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function parseYmd(s){
+    if(!s) return null;
+    var p = String(s).split("-");
+    if(p.length!==3) return null;
+    return new Date(+p[0], +p[1]-1, +p[2]);
+  }
+  function todayYmd(){ return ymd(new Date()); }
+  function mondayOf(d){
+    var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    x.setDate(x.getDate() - ((x.getDay()+6)%7));
+    return x;
+  }
+  function addDays(d,n){
+    var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    x.setDate(x.getDate()+n);
+    return x;
+  }
+  function shortDate(s){
+    var d = parseYmd(s);
+    if(!d) return s;
+    return (d.getMonth()+1)+"/"+d.getDate();
+  }
+  function longDate(s){
+    var d = parseYmd(s);
+    if(!d) return s;
+    var days=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    var mo=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    return days[d.getDay()]+", "+mo[d.getMonth()]+" "+d.getDate();
+  }
+  function daysBetween(a,b){ return Math.round((parseYmd(b)-parseYmd(a))/86400000); }
+  function secToClock(sec){
+    if(sec===null||sec===undefined||isNaN(sec)) return "";
+    var m=Math.floor(sec/60), s=Math.round(sec%60);
+    return m+":"+pad(s);
+  }
+  function clockToSec(str){
+    if(!str) return null;
+    var p=String(str).trim().split(":");
+    if(p.length===1){ var n=parseFloat(p[0]); return isNaN(n)?null:Math.round(n*60); }
+    var m=parseInt(p[0],10)||0, s=parseInt(p[1],10)||0;
+    return m*60+s;
+  }
+  function esc(s){
+    return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function el(id){ return document.getElementById(id); }
+
+  /* ---------- derived stats ---------- */
+  function cfg(k, fallback){
+    if(S.config && S.config[k]!==undefined && S.config[k]!==null) return S.config[k];
+    return fallback;
+  }
+  function weeklyGoal(){ return cfg("weeklyGoalMin", 350); }
+
+  function priorWeekMin(weekStartYmd){
+    var pw = cfg("priorWeeks", {});
+    return (pw && pw[weekStartYmd]) ? pw[weekStartYmd] : 0;
+  }
+  function loggedMinutesIn(startYmd, endYmd){
+    var total = 0;
+    S.tasks.forEach(function(t){
+      if(t.done && t.date>=startYmd && t.date<=endYmd) total += (t.actualMin||0);
+    });
+    return total;
+  }
+  function weekMinutes(weekStart){
+    var a = ymd(weekStart), b = ymd(addDays(weekStart,6));
+    return priorWeekMin(a) + loggedMinutesIn(a,b);
+  }
+  function totalMinutes(){
+    var base = cfg("baselineMinutes", 0);
+    var since = cfg("trackerStart", "1900-01-01");
+    var sum = 0;
+    S.tasks.forEach(function(t){ if(t.done && t.date>=since) sum += (t.actualMin||0); });
+    return base + sum;
+  }
+  function daysCompleted(){
+    var since = cfg("trackerStart","1900-01-01"), n = cfg("priorDaysCompleted",0);
+    S.tasks.forEach(function(t){ if(t.done && t.date>=since) n++; });
+    return n;
+  }
+  function daysElapsed(){
+    var start = cfg("startDate", null);
+    if(!start) return daysCompleted();
+    return Math.max(1, daysBetween(start, todayYmd())+1);
+  }
+  function currentStreak(){
+    var n = 0, d = new Date(), guard = 0;
+    // don't punish today if it hasn't been logged yet
+    var t0 = S.tasks.get(todayYmd());
+    if(!t0 || (!t0.done && !t0.skip)) d = addDays(d,-1);
+    while(guard++ < 400){
+      var t = S.tasks.get(ymd(d));
+      if(t && (t.done || t.skip)) { n++; d = addDays(d,-1); }
+      else break;
+    }
+    var carried = cfg("priorStreakInto", 0);
+    var trackerStart = cfg("trackerStart", null);
+    if(trackerStart && parseYmd(ymd(d)) < parseYmd(trackerStart)) n += carried;
+    return n;
+  }
+  function bestStreak(){
+    return Math.max(cfg("priorBestStreak",0), currentStreak());
+  }
+  function sortedTasks(){
+    var a = [];
+    S.tasks.forEach(function(t){ a.push(t); });
+    a.sort(function(x,y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
+    return a;
+  }
+
+  /* ---------- db plumbing ---------- */
+  function banner(html, kind){
+    el("banner").innerHTML = html ? '<div class="msg">'+html+'</div>' : "";
+  }
+
+  function subscribe(){
+    var db = S.db;
+
+    db.doc("meta/config").onSnapshot(function(snap){
+      S.config = snap.exists ? snap.data() : null;
+      render();
+    }, function(){});
+
+    // Each collection gets a one-shot read AND a live subscription. The read
+    // guarantees the page fills even if the realtime channel is slow to deliver
+    // its first snapshot; the subscription keeps it current afterwards.
+    function wire(name, apply, failMsg){
+      db.collection(name).get().then(function(snap){
+        apply(snap);
+        S.loaded[name] = true;
+        render();
+      }).catch(function(){
+        S.loaded[name] = true;
+        banner(failMsg);
+        render();
+      });
+
+      db.collection(name).onSnapshot(function(snap){
+        apply(snap);
+        S.loaded[name] = true;
+        banner("");
+        render();
+      }, function(){
+        S.loaded[name] = true;
+        banner(failMsg);
+        render();
+      });
+    }
+
+    wire("tasks", function(snap){
+      var m = new Map();
+      snap.docs.forEach(function(d){
+        var v = Object.assign({}, d.data() || {});
+        v.date = v.date || d.id;
+        m.set(v.date, v);
+      });
+      S.tasks = m;
+      S.ready = true;
+    }, "Your schedule could not load. Reload the page to try again.");
+
+    wire("journal", function(snap){
+      var a = [];
+      snap.docs.forEach(function(d){
+        var v = Object.assign({}, d.data() || {});
+        v._id = d.id;
+        a.push(v);
+      });
+      a.sort(function(x,y){
+        if(x.date !== y.date) return x.date < y.date ? 1 : -1;
+        return (y.createdAt||0) - (x.createdAt||0);
+      });
+      S.journal = a;
+    }, "Your wrong-answer entries could not load. Reload the page to try again.");
+
+    wire("scores", function(snap){
+      var a = [];
+      snap.docs.forEach(function(d){
+        var v = Object.assign({}, d.data() || {});
+        v._id = d.id;
+        a.push(v);
+      });
+      a.sort(function(x,y){ return x.date < y.date ? 1 : x.date > y.date ? -1 : 0; });
+      S.scores = a;
+    }, "Your scores could not load. Reload the page to try again.");
+  }
+
+  function handleWriteError(e){
+    if(e && e.code === "invalid_argument"){
+      S.writable = false;
+      banner("This view is read-only, so new entries can't be saved.");
+      render();
+    } else {
+      banner("That didn't save. Try again in a moment.");
+    }
+  }
+
+  function segControl(){
+    return '<div class="seg" role="group" aria-label="Section type">'+
+      '<button data-mode="LR" aria-pressed="'+(S.mode==="LR")+'">LR</button>'+
+      '<button data-mode="RC" aria-pressed="'+(S.mode==="RC")+'">RC</button>'+
+      '</div>';
+  }
+  function dayLabel(dstr){
+    var d = parseYmd(dstr);
+    var names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    return names[d.getDay()]+" "+(d.getMonth()+1)+"/"+d.getDate();
+  }
+  function scoreMode(s){
+    if(s.mode) return s.mode;
+    if(s.kind==="LR") return "LR";
+    if(s.kind==="RC") return "RC";
+    return null;
+  }
+  function journalFor(mode){
+    return S.journal.filter(function(e){ return (e.mode||"LR") === mode; });
+  }
+
+  /* ---------- rendering ---------- */
+  function render(){
+    renderCountdown();
+    if(S.tab==="today") renderToday();
+    if(S.tab==="log") renderLog();
+    if(S.tab==="journal") renderJournal();
+    if(S.tab==="scores") renderScores();
+    if(S.tab==="patterns") renderPatterns();
+  }
+
+  function renderCountdown(){
+    var left = daysBetween(todayYmd(), TEST_DATE);
+    var c = el("countdown");
+    if(left > 0) c.innerHTML = '<b>'+left+'</b> days to test day';
+    else if(left === 0) c.innerHTML = '<b>Test day</b>';
+    else c.innerHTML = 'Test window passed';
+  }
+
+  function renderToday(){
+    var p = el("pane-today");
+    if(!S.ready && !S.db){
+      p.innerHTML = '<div class="empty">Storage isn\'t available in this view, so nothing can be loaded or saved.</div>';
+      return;
+    }
+    var td = todayYmd();
+    var t = S.tasks.get(td);
+    var h = "";
+
+    if(!t){
+      h += '<div class="today rest"><div class="when">'+esc(longDate(td))+'</div>'+
+           '<p class="what">Nothing scheduled</p>'+
+           '<div class="planned">Log the minutes anyway if you studied.</div>'+
+           logControls(td, null)+'</div>';
+    } else if(t.skip){
+      h += '<div class="today rest"><div class="when">'+esc(longDate(td))+'</div>'+
+           '<p class="what">'+esc(t.title)+'</p>'+
+           '<div class="planned">'+(t.cat==="Test"
+              ? 'Nothing to study. Go take it.'
+              : 'Scheduled break. Nothing to do.')+'</div>'+
+           logControls(td, t)+'</div>';
+    } else {
+      h += '<div class="today"><div class="when">'+esc(longDate(td))+'</div>'+
+           '<p class="what">'+esc(t.title)+'</p>'+
+           '<div class="planned">'+esc(t.cat||"")+(t.plannedMin?' &middot; '+t.plannedMin+' min planned':'')+'</div>'+
+           logControls(td, t)+'</div>';
+    }
+
+    // stat strip
+    var wk = mondayOf(new Date());
+    var wkMin = weekMinutes(wk), goal = weeklyGoal();
+    h += '<div class="strip">'+
+      '<div><div class="v num">'+currentStreak()+'</div><div class="k">day streak</div></div>'+
+      '<div><div class="v num">'+bestStreak()+'</div><div class="k">best streak</div></div>'+
+      '<div><div class="v num">'+daysCompleted()+'/'+daysElapsed()+'</div><div class="k">days completed</div></div>'+
+      '<div><div class="v num">'+totalMinutes().toLocaleString()+'</div><div class="k">minutes total</div></div>'+
+      '</div>';
+
+    // goal bar
+    var pct = goal>0 ? Math.round(wkMin/goal*1000)/10 : 0;
+    h += '<div class="goal"><div class="head"><span>This week &middot; '+shortDate(ymd(wk))+'–'+shortDate(ymd(addDays(wk,6)))+'</span>'+
+      '<span><b>'+wkMin+'</b> / '+goal+' min</span></div>'+
+      '<div class="track"><div class="fill'+(wkMin>=goal?' over':'')+'" style="width:'+Math.min(100,pct)+'%"></div></div>'+
+      '<div class="head" style="margin-top:6px;margin-bottom:0"><span>'+pct+'% of goal</span>'+
+      (wkMin<goal?'<span>'+(goal-wkMin)+' min to go</span>':'<span>goal met</span>')+'</div></div>';
+
+    // previous weeks
+    var wks = [];
+    for(var i=1;i<=5;i++){
+      var ws = addDays(wk, -7*i);
+      var m = weekMinutes(ws);
+      if(m>0) wks.push({s:ws, m:m});
+    }
+    if(wks.length){
+      h += '<h2 class="sec">Recent weeks</h2><div class="bars">';
+      var mx = Math.max(goal, Math.max.apply(null, wks.map(function(w){return w.m;})));
+      wks.forEach(function(w){
+        h += '<div class="bar"><div class="bname">'+shortDate(ymd(w.s))+'–'+shortDate(ymd(addDays(w.s,6)))+'</div>'+
+          '<div class="bt"><span style="width:'+Math.round(w.m/mx*100)+'%;background:'+(w.m>=goal?'var(--moss)':'var(--slate)')+'"></span></div>'+
+          '<div class="bv">'+w.m+'</div></div>';
+      });
+      h += '</div>';
+    }
+
+    // next up
+    var all = sortedTasks();
+    var upcoming = all.filter(function(x){ return x.date > td; }).slice(0,7);
+    if(upcoming.length){
+      h += '<h2 class="sec">Next up</h2><ul class="sched">';
+      upcoming.forEach(function(x){
+        h += '<li class="'+(x.skip?'skip':'')+'"><div class="d">'+shortDate(x.date)+'</div>'+
+             '<div class="t">'+esc(x.title)+'</div>'+
+             '<div class="m">'+(x.plannedMin? x.plannedMin+'m' : '—')+'</div></li>';
+      });
+      h += '</ul>';
+    }
+
+    // missed days
+    var missed = all.filter(function(x){ return x.date < td && !x.skip && !x.done; });
+    if(missed.length){
+      h += '<h2 class="sec">Not logged yet</h2><ul class="sched">';
+      missed.slice(-6).forEach(function(x){
+        h += '<li><div class="d">'+shortDate(x.date)+'</div><div class="t">'+esc(x.title)+'</div>'+
+             '<div class="m"><button class="btn ghost small" data-backlog="'+x.date+'">Log</button></div></li>';
+      });
+      h += '</ul>';
+    }
+    p.innerHTML = h;
+  }
+
+  function logControls(date, t){
+    if(!S.writable) return "";
+    if(t && t.done){
+      return '<div class="done-flag">Logged'+(t.actualMin?' &middot; '+t.actualMin+' min':'')+
+        '</div> <button class="del" data-undo="'+date+'">undo</button>';
+    }
+    var suggested = t && t.plannedMin ? t.plannedMin : "";
+    return '<div class="logrow"><label for="minIn">Minutes</label>'+
+      '<input id="minIn" class="num" type="number" min="0" step="5" value="'+suggested+'" inputmode="numeric">'+
+      '<button class="btn" data-log="'+date+'">Mark done</button></div>';
+  }
+
+  /* ---------- journal ---------- */
+  function renderJournal(){
+    var p = el("pane-journal");
+    var h = "";
+
+    if(S.writable){
+      h += '<details class="add"><summary>Log a missed question</summary><div class="form">'+
+        '<div class="grid3">'+
+          '<div class="f"><label for="j-date">Date</label><input id="j-date" type="date" value="'+todayYmd()+'"></div>'+
+          '<div class="f"><label for="j-mode">Section</label><select id="j-mode">'+
+            '<option value="LR"'+(S.mode==="LR"?" selected":"")+'>LR</option>'+
+            '<option value="RC"'+(S.mode==="RC"?" selected":"")+'>RC</option></select></div>'+
+          '<div class="f"><label for="j-src">From</label><select id="j-src"><option>Section</option><option>Drill</option><option>PT</option></select></div>'+
+        '</div>'+
+        '<div class="grid3">'+
+          '<div class="f"><label for="j-type">Question type</label><select id="j-type"></select></div>'+
+          '<div class="f"><label for="j-level">Level 1–5</label><input id="j-level" type="number" min="1" max="5" inputmode="numeric"></div>'+
+          '<div class="f"><label for="j-time">Time (m:ss)</label><input id="j-time" type="text" placeholder="1:34"></div>'+
+        '</div>'+
+        '<div class="grid3">'+
+          '<div class="f"><label for="j-test">Test</label><input id="j-test" type="text" placeholder="PT 155"></div>'+
+          '<div class="f"><label for="j-section">Section</label><input id="j-section" type="text" placeholder="1"></div>'+
+          '<div class="f"><label for="j-q">Question</label><input id="j-q" type="text" placeholder="14"></div>'+
+        '</div>'+
+        '<div class="f"><label for="j-wrong">Why my answer looked right, and why it was wrong</label>'+
+          '<textarea id="j-wrong" rows="3"></textarea></div>'+
+        '<div class="f"><label for="j-right">Why the right answer is right</label>'+
+          '<textarea id="j-right" rows="3"></textarea></div>'+
+        '<div><button class="btn" id="j-save">Save entry</button></div>'+
+      '</div></details>';
+    }
+
+    h += segControl();
+
+    var pool = journalFor(S.mode);
+    var counts = {};
+    pool.forEach(function(e){ counts[e.qtype] = (counts[e.qtype]||0)+1; });
+    var opts = Object.keys(counts).sort(function(a,b){ return counts[b]-counts[a]; });
+    h += '<div class="grid2" style="margin-bottom:16px">'+
+      '<div class="f"><label for="j-filter">Question type</label><select id="j-filter">'+
+      '<option value="all">All '+S.mode+' misses ('+pool.length+')</option>'+
+      opts.map(function(t){
+        return '<option value="t:'+esc(t)+'"'+(S.jFilter==="t:"+t?" selected":"")+'>'+esc(t)+' ('+counts[t]+')</option>';
+      }).join("")+'</select></div></div>';
+
+    var list = pool.filter(function(e){
+      if(S.jFilter.indexOf("t:")===0) return e.qtype===S.jFilter.slice(2);
+      return true;
+    });
+
+    if(!list.length){
+      h += '<div class="empty">'+(S.loaded.journal
+        ? 'No '+S.mode+' entries here yet. Log a miss right after blind review, while the reasoning is still fresh.'
+        : 'Loading your entries…')+'</div>';
+    } else {
+      list.forEach(function(e){
+        var pips = "";
+        for(var i=1;i<=5;i++) pips += '<i class="'+(e.level>=i?"on":"")+'"></i>';
+        h += '<div class="entry"><div class="top">'+
+          '<span class="qt">'+esc(e.qtype)+'</span>'+
+          '<span class="pips" title="Level '+(e.level||"?")+'">'+pips+'</span>'+
+          '<span class="tag'+(e.mode==="RC"?" rc":"")+'">'+esc(e.mode||"")+(e.source?" "+esc(e.source):"")+'</span>'+
+          '<span class="meta">'+shortDate(e.date)+
+            (e.timeSec?' &middot; '+secToClock(e.timeSec):'')+
+            (e.test?' &middot; '+esc(e.test):'')+
+            (e.section?' S'+esc(e.section):'')+
+            (e.q?' Q'+esc(e.q):'')+'</span>'+
+          '</div>';
+        if(e.whyWrong) h += '<p class="why"><span class="lbl">Why I picked it / why it was wrong</span>'+esc(e.whyWrong)+'</p>';
+        if(e.whyRight) h += '<p><span class="lbl">Why the right answer is right</span>'+esc(e.whyRight)+'</p>';
+        if(S.writable) h += '<button class="del" data-deljournal="'+esc(e._id)+'">delete</button>';
+        h += '</div>';
+      });
+    }
+    p.innerHTML = h;
+    fillTypeSelect();
+  }
+
+  function fillTypeSelect(){
+    var mode = el("j-mode"), sel = el("j-type");
+    if(!mode || !sel) return;
+    var list = mode.value === "RC" ? RC_TYPES : LR_TYPES;
+    sel.innerHTML = list.map(function(t){ return '<option>'+esc(t)+'</option>'; }).join("");
+  }
+
+  /* ---------- scores ---------- */
+  function renderScores(){
+    var p = el("pane-scores");
+    var h = "";
+
+    if(S.writable){
+      h += '<details class="add"><summary>Add a score</summary><div class="form">'+
+        '<div class="grid3">'+
+          '<div class="f"><label for="s-date">Date</label><input id="s-date" type="date" value="'+todayYmd()+'"></div>'+
+          '<div class="f"><label for="s-kind">Kind</label><select id="s-kind">'+
+            '<option value="Section">Section</option><option value="Drill">Drill</option>'+
+            '<option value="PT">Full PT</option></select></div>'+
+          '<div class="f"><label for="s-mode">LR or RC</label><select id="s-mode">'+
+            '<option value="LR"'+(S.mode==="LR"?" selected":"")+'>LR</option>'+
+            '<option value="RC"'+(S.mode==="RC"?" selected":"")+'>RC</option></select></div>'+
+        '</div>'+
+        '<div class="grid3">'+
+          '<div class="f"><label for="s-raw">Right</label><input id="s-raw" type="number" min="0" inputmode="numeric"></div>'+
+          '<div class="f"><label for="s-total">Out of</label><input id="s-total" type="number" min="1" inputmode="numeric"></div>'+
+          '<div class="f"><label for="s-time">Time (m:ss)</label><input id="s-time" type="text" placeholder="35:00"></div>'+
+        '</div>'+
+        '<div class="grid2">'+
+          '<div class="f"><label for="s-br">Blind review</label><input id="s-br" type="text" placeholder="90% or 155"></div>'+
+          '<div class="f"><label for="s-note">Notes</label><input id="s-note" type="text" placeholder="how it felt, where it fell apart"></div>'+
+        '</div>'+
+        '<div><button class="btn" id="s-save">Save score</button></div>'+
+      '</div></details>';
+    }
+
+    h += segControl();
+
+    var sections = S.scores.filter(function(x){
+      return (x.kind==="LR"||x.kind==="RC") && scoreMode(x)===S.mode;
+    });
+    var drills = S.scores.filter(function(x){
+      return x.kind==="Drill" && scoreMode(x)===S.mode;
+    });
+    var pts = S.scores.filter(function(x){ return x.kind==="PT"; });
+
+    if(sections.length){
+      h += '<h2 class="sec">'+S.mode+' sections</h2>'+sparkline(sections)+scoreTable(sections,false);
+    } else {
+      h += '<h2 class="sec">'+S.mode+' sections</h2><div class="empty">'+
+        (S.loaded.scores ? 'No '+S.mode+' sections logged yet.' : 'Loading…')+'</div>';
+    }
+
+    if(drills.length){
+      h += '<h2 class="sec">'+S.mode+' drills</h2>'+scoreTable(drills,false);
+    }
+
+    if(pts.length){
+      h += '<h2 class="sec">Practice tests</h2>'+
+        '<p style="font-size:13.5px;color:var(--ink-faint);margin:0 0 10px">Whole-test scores, so these sit outside the LR/RC split.</p>'+
+        scoreTable(pts, true);
+    }
+    p.innerHTML = h;
+  }
+
+  function pctOf(s){
+    if(!s.total || s.raw===undefined || s.raw===null) return null;
+    return Math.round(s.raw/s.total*100);
+  }
+
+  function scoreTable(rows, isPT){
+    var h = '<div class="scroll"><table><thead><tr><th>Date</th>'+
+      (isPT?'<th>Score</th>':'<th>Right</th><th>%</th>')+
+      '<th>Time</th><th>BR</th><th>Notes</th>'+(S.writable?'<th></th>':'')+'</tr></thead><tbody>';
+    rows.forEach(function(s){
+      var pct = pctOf(s);
+      h += '<tr><td class="n">'+shortDate(s.date)+'</td>';
+      if(isPT){
+        h += '<td class="n">'+(s.scaled!==undefined&&s.scaled!==null?s.scaled:(s.raw!=null?s.raw:"—"))+'</td>';
+      } else {
+        h += '<td class="n">'+(s.raw!=null? s.raw+'/'+s.total : "—")+'</td>'+
+             '<td class="n">'+(pct!==null?pct+'%':"—")+'</td>';
+      }
+      h += '<td class="n">'+(s.timeSec?secToClock(s.timeSec):"—")+'</td>'+
+        '<td class="n">'+(s.br?esc(s.br):"—")+'</td>'+
+        '<td class="note">'+esc(s.note||"")+'</td>'+
+        (S.writable?'<td><button class="del" data-delscore="'+esc(s._id)+'">×</button></td>':'')+
+        '</tr>';
+    });
+    return h+'</tbody></table></div>';
+  }
+
+  function sparkline(rows){
+    var pts = rows.slice().reverse().map(function(s){ return {d:s.date, v:pctOf(s)}; })
+      .filter(function(x){ return x.v!==null; });
+    if(pts.length<3) return "";
+    var w=640, hgt=84, pad=8;
+    var min=Math.min.apply(null,pts.map(function(p){return p.v;}));
+    var max=Math.max.apply(null,pts.map(function(p){return p.v;}));
+    min = Math.max(0, min-6); max = Math.min(100, max+6);
+    var span = Math.max(1, max-min);
+    var coords = pts.map(function(p,i){
+      var x = pad + i*(w-2*pad)/(pts.length-1);
+      var y = hgt-pad - (p.v-min)/span*(hgt-2*pad);
+      return [Math.round(x*10)/10, Math.round(y*10)/10];
+    });
+    var path = coords.map(function(c,i){ return (i?"L":"M")+c[0]+" "+c[1]; }).join(" ");
+    var dots = coords.map(function(c){
+      return '<circle cx="'+c[0]+'" cy="'+c[1]+'" r="2.6" fill="var(--slate)"/>';
+    }).join("");
+    return '<svg class="spark" viewBox="0 0 '+w+' '+hgt+'" preserveAspectRatio="none" role="img" '+
+      'aria-label="LR section accuracy from '+pts[0].v+'% to '+pts[pts.length-1].v+'%">'+
+      '<path d="'+path+'" fill="none" stroke="var(--slate)" stroke-width="2" '+
+      'stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'+dots+'</svg>'+
+      '<div class="head" style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-faint)">'+
+      '<span>'+shortDate(pts[0].d)+'</span><span>accuracy, oldest to newest</span>'+
+      '<span>'+shortDate(pts[pts.length-1].d)+'</span></div>';
+  }
+
+  /* ---------- patterns ---------- */
+  function renderPatterns(){
+    var p = el("pane-patterns");
+    var pool = journalFor(S.mode);
+    var h = segControl();
+
+    if(!pool.length){
+      p.innerHTML = h + '<div class="empty">'+(S.loaded.journal
+        ? 'No '+S.mode+' misses logged yet, so there is nothing to find patterns in.'
+        : 'Loading…')+'</div>';
+      return;
+    }
+
+    var byType = {}, byLevel = {1:0,2:0,3:0,4:0,5:0}, timeSum=0, timeN=0, slow=0;
+    pool.forEach(function(e){
+      byType[e.qtype] = (byType[e.qtype]||0)+1;
+      if(e.level>=1 && e.level<=5) byLevel[e.level]++;
+      if(e.timeSec){ timeSum += e.timeSec; timeN++; if(e.timeSec>=120) slow++; }
+    });
+
+    var types = Object.keys(byType).sort(function(a,b){ return byType[b]-byType[a]; });
+    var mx = byType[types[0]];
+    h += '<h2 class="sec">Where your '+S.mode+' misses are</h2><div class="bars">';
+    types.slice(0,14).forEach(function(t){
+      h += '<div class="bar"><div class="bname" title="'+esc(t)+'">'+esc(t)+'</div>'+
+        '<div class="bt"><span style="width:'+Math.round(byType[t]/mx*100)+'%"></span></div>'+
+        '<div class="bv">'+byType[t]+'</div></div>';
+    });
+    h += '</div>';
+
+    h += '<h2 class="sec">Difficulty of what you miss</h2><div class="bars">';
+    var lmx = Math.max(1, Math.max(byLevel[1],byLevel[2],byLevel[3],byLevel[4],byLevel[5]));
+    for(var i=1;i<=5;i++){
+      h += '<div class="bar"><div class="bname">Level '+i+'</div>'+
+        '<div class="bt"><span style="width:'+Math.round(byLevel[i]/lmx*100)+'%;background:'+
+        (i<=2?'var(--brick)':'var(--slate)')+'"></span></div><div class="bv">'+byLevel[i]+'</div></div>';
+    }
+    h += '</div>';
+    var easyMiss = byLevel[1]+byLevel[2];
+    if(easyMiss>0){
+      h += '<div class="note-block"><b>'+easyMiss+' of your '+pool.length+' logged '+S.mode+' misses are level 1–2.</b> '+
+        'Those are the cheapest points on the test to win back. Anything you miss at level 1 or 2 is a process '+
+        'slip, not a difficulty problem.</div>';
+    }
+
+    h += '<div class="strip" style="margin-top:22px">'+
+      '<div><div class="v num">'+pool.length+'</div><div class="k">'+S.mode+' misses</div></div>'+
+      '<div><div class="v num">'+(timeN?secToClock(Math.round(timeSum/timeN)):"—")+'</div><div class="k">avg time on a miss</div></div>'+
+      '<div><div class="v num">'+slow+'</div><div class="k">took over 2:00</div></div>'+
+      '<div><div class="v num">'+(types[0]?byType[types[0]]:0)+'</div><div class="k">worst type count</div></div>'+
+      '</div>';
+
+    // blind review gap, within this mode
+    var withBR = S.scores.filter(function(x){
+      return scoreMode(x)===S.mode && x.br && x.total && x.raw!=null && /%/.test(String(x.br));
+    });
+    if(withBR.length){
+      h += '<h2 class="sec">Blind review gap</h2><div class="scroll"><table><thead><tr>'+
+        '<th>Date</th><th>Timed</th><th>Blind review</th><th>Gap</th></tr></thead><tbody>';
+      withBR.forEach(function(x){
+        var timed = pctOf(x), br = parseFloat(String(x.br));
+        h += '<tr><td class="n">'+shortDate(x.date)+'</td><td class="n">'+timed+'%</td>'+
+          '<td class="n">'+br+'%</td><td class="n" style="color:var(--brick)">+'+Math.round(br-timed)+'</td></tr>';
+      });
+      h += '</tbody></table></div><div class="note-block">The gap is what you already know but lose under the clock. '+
+        'Shrinking it is a timing and stamina problem, not a content problem.</div>';
+    }
+    p.innerHTML = h;
+  }
+
+  /* ---------- day log ---------- */
+  function renderLog(){
+    var p = el("pane-log");
+    var startStr = cfg("startDate", null);
+    if(!startStr || !S.ready){
+      p.innerHTML = '<div class="empty">'+(S.loaded.tasks ? 'Nothing logged yet.' : 'Loading your day log…')+'</div>';
+      return;
+    }
+    var trackerStart = cfg("trackerStart", startStr);
+    var goal = weeklyGoal();
+    var today = todayYmd();
+
+    var weeks = [], w = mondayOf(new Date()), first = mondayOf(parseYmd(startStr)), guard = 0;
+    while(ymd(w) >= ymd(first) && guard++ < 200){ weeks.push(new Date(w)); w = addDays(w,-7); }
+
+    var totalLogged = 0, activeDays = 0;
+    S.tasks.forEach(function(t){
+      if(t.done && t.date >= trackerStart){ totalLogged += (t.actualMin||0); activeDays++; }
+    });
+
+    var h = '<div class="strip">'+
+      '<div><div class="v num">'+totalMinutes().toLocaleString()+'</div><div class="k">minutes all-time</div></div>'+
+      '<div><div class="v num">'+daysCompleted()+'/'+daysElapsed()+'</div><div class="k">days completed</div></div>'+
+      '<div><div class="v num">'+(activeDays?Math.round(totalLogged/activeDays):"—")+'</div><div class="k">avg min per day here</div></div>'+
+      '<div><div class="v num">'+goal+'</div><div class="k">weekly goal</div></div>'+
+      '</div><div style="height:26px"></div>';
+
+    weeks.forEach(function(ws){
+      var we = addDays(ws,6), tot = weekMinutes(ws), carried = priorWeekMin(ymd(ws));
+      h += '<div class="week"><div class="weekhead">'+
+        '<span class="wk">'+shortDate(ymd(ws))+' – '+shortDate(ymd(we))+'</span>'+
+        '<span class="tot '+(tot>=goal?'hit':'miss')+'">'+tot+' / '+goal+' min</span></div>';
+
+      var rows = "";
+      for(var i=0;i<7;i++){
+        var ds = ymd(addDays(ws,i));
+        if(ds > today || ds < startStr || ds < trackerStart) continue;
+        var t = S.tasks.get(ds);
+        var cls, mins;
+        if(t && t.skip){ cls = "rest"; mins = "rest"; }
+        else if(t && t.done){ cls = "logged"; mins = (t.actualMin||0)+" min"; }
+        else { cls = "gap"; mins = ""; }
+        rows += '<li class="'+cls+'"><div class="d">'+dayLabel(ds)+'</div>'+
+          '<div class="t">'+esc(t ? t.title : "Nothing scheduled")+'</div>'+
+          '<div class="mins">'+(cls==="gap" && S.writable
+            ? '<button class="btn ghost small" data-backlog="'+ds+'">Log</button>'
+            : esc(mins))+'</div></li>';
+      }
+
+      if(carried > 0){
+        rows = '<li class="rest"><div class="d">earlier</div>'+
+          '<div class="t">Carried over from your old sheet</div>'+
+          '<div class="mins">'+carried+' min</div></li>' + rows;
+      }
+      h += rows ? '<ul class="days">'+rows+'</ul>'
+                : '<div class="oldweek">Week total only — your old sheet did not keep day-by-day minutes.</div>';
+      h += '</div>';
+    });
+    p.innerHTML = h;
+  }
+
+  /* ---------- writes ---------- */
+  function logDay(date, minutes){
+    if(!S.db) return;
+    var existing = S.tasks.get(date) || {date:date, title:"Unscheduled session", cat:"Other", plannedMin:0};
+    var body = {
+      date: date,
+      title: existing.title,
+      cat: existing.cat || "Other",
+      plannedMin: existing.plannedMin || 0,
+      skip: !!existing.skip,
+      done: true,
+      actualMin: minutes
+    };
+    S.db.doc("tasks/"+date).set(body).catch(handleWriteError);
+  }
+  function undoDay(date){
+    if(!S.db) return;
+    var existing = S.tasks.get(date);
+    if(!existing) return;
+    var body = Object.assign({}, existing);
+    delete body._id;
+    body.done = false;
+    body.actualMin = 0;
+    S.db.doc("tasks/"+date).set(body).catch(handleWriteError);
+  }
+
+  function saveJournal(){
+    if(!S.db) return;
+    var mode = el("j-mode").value;
+    var body = {
+      date: el("j-date").value || todayYmd(),
+      mode: mode,
+      source: el("j-src").value,
+      qtype: el("j-type").value,
+      level: parseInt(el("j-level").value,10) || null,
+      timeSec: clockToSec(el("j-time").value),
+      test: el("j-test").value.trim(),
+      section: el("j-section").value.trim(),
+      q: el("j-q").value.trim(),
+      whyWrong: el("j-wrong").value.trim(),
+      whyRight: el("j-right").value.trim(),
+      createdAt: Date.now()
+    };
+    if(!body.whyWrong && !body.whyRight){
+      banner("Add at least one line of reasoning — that's the part that makes the entry useful later.");
+      return;
+    }
+    banner("");
+    S.db.collection("journal").add(body).then(function(){
+      ["j-level","j-time","j-test","j-section","j-q","j-wrong","j-right"].forEach(function(id){
+        var n = el(id); if(n) n.value = "";
+      });
+      var d = document.querySelector("#pane-journal details.add");
+      if(d) d.open = false;
+    }).catch(handleWriteError);
+  }
+
+  function saveScore(){
+    if(!S.db) return;
+    var kindSel = el("s-kind").value;
+    var mode = el("s-mode").value;
+    var raw = el("s-raw").value === "" ? null : parseInt(el("s-raw").value,10);
+    var kind = kindSel === "PT" ? "PT" : (kindSel === "Drill" ? "Drill" : mode);
+    var body = {
+      date: el("s-date").value || todayYmd(),
+      kind: kind,
+      mode: kindSel === "PT" ? null : mode,
+      raw: raw,
+      total: el("s-total").value === "" ? null : parseInt(el("s-total").value,10),
+      timeSec: clockToSec(el("s-time").value),
+      br: el("s-br").value.trim(),
+      note: el("s-note").value.trim(),
+      createdAt: Date.now()
+    };
+    if(kind === "PT" && body.total === null) body.scaled = raw;
+    S.db.collection("scores").add(body).then(function(){
+      ["s-raw","s-total","s-time","s-br","s-note"].forEach(function(id){
+        var n = el(id); if(n) n.value = "";
+      });
+      var d = document.querySelector("#pane-scores details.add");
+      if(d) d.open = false;
+    }).catch(handleWriteError);
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener("click", function(ev){
+    var t = ev.target;
+    if(t.matches("nav.tabs button")){
+      S.tab = t.getAttribute("data-tab");
+      document.querySelectorAll("nav.tabs button").forEach(function(b){
+        b.setAttribute("aria-selected", b===t ? "true" : "false");
+      });
+      ["today","log","journal","scores","patterns"].forEach(function(k){
+        el("pane-"+k).hidden = (k !== S.tab);
+      });
+      render();
+      return;
+    }
+    if(t.hasAttribute("data-mode")){
+      S.mode = t.getAttribute("data-mode");
+      S.jFilter = "all";
+      render();
+      return;
+    }
+    if(t.hasAttribute("data-log")){
+      var v = el("minIn");
+      var mins = v ? (parseInt(v.value,10) || 0) : 0;
+      logDay(t.getAttribute("data-log"), mins);
+      return;
+    }
+    if(t.hasAttribute("data-undo")){ undoDay(t.getAttribute("data-undo")); return; }
+    if(t.hasAttribute("data-backlog")){
+      var date = t.getAttribute("data-backlog");
+      var task = S.tasks.get(date);
+      var ans = window.prompt("Minutes studied on "+shortDate(date)+"?", task && task.plannedMin ? task.plannedMin : "");
+      if(ans!==null) logDay(date, parseInt(ans,10)||0);
+      return;
+    }
+    if(t.id === "j-save"){ saveJournal(); return; }
+    if(t.id === "s-save"){ saveScore(); return; }
+    if(t.hasAttribute("data-deljournal")){
+      if(window.confirm("Delete this entry?")) S.db.doc("journal/"+t.getAttribute("data-deljournal")).delete().catch(handleWriteError);
+      return;
+    }
+    if(t.hasAttribute("data-delscore")){
+      if(window.confirm("Delete this score?")) S.db.doc("scores/"+t.getAttribute("data-delscore")).delete().catch(handleWriteError);
+      return;
+    }
+  });
+
+  document.addEventListener("change", function(ev){
+    if(ev.target.id === "j-mode"){ fillTypeSelect(); return; }
+    if(ev.target.id === "j-filter"){ S.jFilter = ev.target.value; renderJournal(); return; }
+  });
+
+  /* ---------- boot ---------- */
+  renderCountdown();
+  el("pane-today").innerHTML = '<div class="empty">Loading your schedule…</div>';
+
+  (async function(){
+    var db = null;
+    try{
+      if(!window.claude || typeof window.claude.use !== "function") throw new Error("no runtime");
+      db = await window.claude.use("db");
+    }catch(e){ db = null; }
+
+    if(!db){
+      S.db = null; S.writable = false;
+      el("pane-today").innerHTML =
+        '<div class="empty">Saved data isn\'t available in this view. Open the artifact directly to use the tracker.</div>';
+      return;
+    }
+    S.db = db;
+    subscribe();
+
+    try{
+      var user = await window.claude.use("user");
+      if(user && typeof user.can === "function"){
+        var can = await user.can("data.write");
+        if(can === false){ S.writable = false; render(); }
+      }
+    }catch(e){ /* permission unknown — keep inputs enabled, a rejected write handles it */ }
+  })();
+})();
+</script>
+</body>
+</html>
