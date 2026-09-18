@@ -566,6 +566,12 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
   function journalFor(mode){
     return S.journal.filter(function(e){ return (e.mode||"LR") === mode; });
   }
+  // Drilling repeats whatever type you already chose to drill, so its misses would
+  // just reflect that choice back at you rather than surface what needs work.
+  // Analysis views (Patterns, Trends) look at Section and PT misses only.
+  function analysisJournalFor(mode){
+    return journalFor(mode).filter(function(e){ return e.source !== "Drill"; });
+  }
 
   /* ---------- rendering ---------- */
   function render(){
@@ -1026,13 +1032,15 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       p.innerHTML = segControl()+'<div class="empty">Loading your trends…</div>';
       return;
     }
-    var pool = journalFor(S.mode);
+    var pool = analysisJournalFor(S.mode);
     var accScores = S.scores.filter(function(x){ return scoreMode(x)===S.mode; })
       .slice().sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:0; });
     var accPts = accScores.filter(function(s){ return pctOf(s)!==null; })
       .map(function(s){ return {x:s.date, v:pctOf(s)}; });
 
-    var h = segControl();
+    var h = segControl()+
+      '<p style="font-size:12.5px;color:var(--ink-faint);margin:-8px 0 18px">Miss trends below use '+
+      'section and PT misses only — drills are left out so repeat reps don\'t skew what needs work.</p>';
 
     if(!pool.length && !accPts.length){
       p.innerHTML = h+'<div class="empty">No '+S.mode+' data logged yet, so there’s nothing to chart. '+
@@ -1110,12 +1118,15 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
   /* ---------- patterns ---------- */
   function renderPatterns(){
     var p = el("pane-patterns");
-    var pool = journalFor(S.mode);
-    var h = segControl();
+    var pool = analysisJournalFor(S.mode);
+    var h = segControl()+
+      '<p style="font-size:12.5px;color:var(--ink-faint);margin:-8px 0 18px">Section and practice-test '+
+      'misses only — drills are left out so repeat reps on a type you\'re already targeting don\'t '+
+      'skew what actually needs work.</p>';
 
     if(!pool.length){
       p.innerHTML = h + '<div class="empty">'+(S.loaded.journal
-        ? 'No '+S.mode+' misses logged yet, so there is nothing to find patterns in.'
+        ? 'No '+S.mode+' section or PT misses logged yet, so there is nothing to find patterns in.'
         : 'Loading…')+'</div>';
       return;
     }
@@ -1407,8 +1418,8 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
   /* ---------- events ---------- */
   document.addEventListener("click", function(ev){
     var t = ev.target;
-    if(t.id === "backupBtn"){ backupData(); return; }
-    if(t.id === "restoreBtn"){ el("restoreFile").click(); return; }
+    if(t.closest && t.closest("#backupBtn")){ backupData(); return; }
+    if(t.closest && t.closest("#restoreBtn")){ el("restoreFile").click(); return; }
     if(t.matches("nav.tabs button")){
       S.tab = t.getAttribute("data-tab");
       document.querySelectorAll("nav.tabs button").forEach(function(b){
