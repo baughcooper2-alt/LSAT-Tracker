@@ -10,6 +10,10 @@
     var t = localStorage.getItem("lsat-theme");
     if(t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
   }catch(e){}
+  try{
+    var w = localStorage.getItem("lsat-width");
+    if(w === "narrow" || w === "wide") document.documentElement.setAttribute("data-width", w);
+  }catch(e){}
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -73,6 +77,10 @@
   --shadow:rgba(0,0,0,.35);
 }
 
+:root{--wrap-max:740px}
+:root[data-width="narrow"]{--wrap-max:560px}
+:root[data-width="wide"]{--wrap-max:1100px}
+
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
@@ -83,7 +91,7 @@ body{
   line-height:1.5;
   -webkit-text-size-adjust:100%;
 }
-.wrap{max-width:740px;margin:0 auto;padding:22px 18px 70px}
+.wrap{max-width:var(--wrap-max,740px);margin:0 auto;padding:22px 18px 70px}
 img{max-width:100%}
 button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer}
 input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink);background:var(--panel);
@@ -120,7 +128,12 @@ h2.sec:first-child{margin-top:0}
 /* today card */
 .today{background:var(--panel);border:1px solid var(--rule);border-left:3px solid var(--gold);
   border-radius:4px;padding:18px;box-shadow:0 1px 3px var(--shadow)}
-.today .when{font-size:13px;color:var(--ink-faint);margin-bottom:3px}
+.today .when{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:13px;color:var(--ink-faint);margin-bottom:3px}
+.edit-link{background:none;border:0;color:var(--slate);font-size:12.5px;font-weight:500;
+  padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
+.checkline{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--ink-soft)}
+.checkline input[type="checkbox"]{width:auto}
 .today .what{font-family:'Newsreader',Georgia,serif;font-size:22px;line-height:1.25;margin:0 0 4px}
 .today .planned{font-size:13.5px;color:var(--ink-soft)}
 .today.rest{border-left-color:var(--ink-faint)}
@@ -292,9 +305,16 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
 .mini svg{width:100%;aspect-ratio:4/1;display:block}
 .del{background:none;border:0;color:var(--ink-faint);font-size:12.5px;padding:2px 4px}
 .del:hover{color:var(--brick)}
+.entry-actions{display:flex;gap:14px;margin-top:6px}
+.confirm-del{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:8px;
+  font-size:13px;color:var(--ink-soft)}
+.btn.danger{background:var(--brick)}
+:root[data-theme="dark"] .btn.danger,
+:root:not([data-theme="light"]) .btn.danger{color:#2a1512}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .btn.danger{color:#fff}}
 
 /* backup / restore */
-.databar{display:flex;gap:8px}
+.databar{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .databar .btn.ghost{padding:6px 12px;font-size:12.5px}
 @media (prefers-reduced-motion:no-preference){.track .fill{transition:width .3s ease}}
 </style>
@@ -307,6 +327,7 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       <div class="databar">
         <button class="btn ghost small" id="backupBtn" type="button"><span>Backup</span></button>
         <button class="btn ghost small" id="restoreBtn" type="button"><span>Restore</span></button>
+        <button class="btn ghost small" id="widthBtn" type="button" title="Adjust page width"><span id="widthBtnLabel">Width</span></button>
         <input type="file" id="restoreFile" class="visually-hidden" accept="application/json,.json">
       </div>
       <div class="countdown" id="countdown"></div>
@@ -356,7 +377,11 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     loaded:{tasks:false, journal:false, scores:false},
     tab:"today",
     mode:"LR",
-    jFilter:"all"
+    jFilter:"all",
+    pendingDelete:null,
+    editingJournalId:null,
+    pendingBacklog:null,
+    editingToday:false
   };
 
   /* ---------- date helpers ---------- */
@@ -562,6 +587,32 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     }
   }
 
+  /* ---------- layout width ---------- */
+  var WIDTH_ORDER = ["narrow","standard","wide"];
+  var WIDTH_LABEL = {narrow:"Narrow", standard:"Standard", wide:"Wide"};
+  function currentWidth(){
+    var w = document.documentElement.getAttribute("data-width");
+    return WIDTH_ORDER.indexOf(w)>=0 ? w : "standard";
+  }
+  function setWidth(w){
+    if(w==="standard"){
+      document.documentElement.removeAttribute("data-width");
+      try{ localStorage.removeItem("lsat-width"); }catch(e){}
+    } else {
+      document.documentElement.setAttribute("data-width", w);
+      try{ localStorage.setItem("lsat-width", w); }catch(e){}
+    }
+    updateWidthLabel();
+  }
+  function cycleWidth(){
+    var i = WIDTH_ORDER.indexOf(currentWidth());
+    setWidth(WIDTH_ORDER[(i+1) % WIDTH_ORDER.length]);
+  }
+  function updateWidthLabel(){
+    var n = el("widthBtnLabel");
+    if(n) n.textContent = WIDTH_LABEL[currentWidth()];
+  }
+
   function segControl(){
     return '<div class="seg" role="group" aria-label="Section type">'+
       '<button data-mode="LR" aria-pressed="'+(S.mode==="LR")+'">LR</button>'+
@@ -618,20 +669,22 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     var t = S.tasks.get(td);
     var h = "";
 
-    if(!t){
-      h += '<div class="today rest"><div class="when">'+esc(longDate(td))+'</div>'+
+    if(S.editingToday && S.writable){
+      h += todayEditForm(td, t);
+    } else if(!t){
+      h += '<div class="today rest"><div class="when"><span>'+esc(longDate(td))+'</span>'+editLink(td)+'</div>'+
            '<p class="what">Nothing scheduled</p>'+
            '<div class="planned">Log the minutes anyway if you studied.</div>'+
            logControls(td, null)+'</div>';
     } else if(t.skip){
-      h += '<div class="today rest"><div class="when">'+esc(longDate(td))+'</div>'+
+      h += '<div class="today rest"><div class="when"><span>'+esc(longDate(td))+'</span>'+editLink(td)+'</div>'+
            '<p class="what">'+esc(t.title)+'</p>'+
            '<div class="planned">'+(t.cat==="Test"
               ? 'Nothing to study. Go take it.'
               : 'Scheduled break. Nothing to do.')+'</div>'+
            logControls(td, t)+'</div>';
     } else {
-      h += '<div class="today"><div class="when">'+esc(longDate(td))+'</div>'+
+      h += '<div class="today"><div class="when"><span>'+esc(longDate(td))+'</span>'+editLink(td)+'</div>'+
            '<p class="what">'+esc(t.title)+'</p>'+
            '<div class="planned">'+esc(t.cat||"")+(t.plannedMin?' &middot; '+t.plannedMin+' min planned':'')+'</div>'+
            logControls(td, t)+'</div>';
@@ -693,11 +746,74 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       h += '<h2 class="sec">Not logged yet</h2><ul class="sched">';
       missed.slice(-6).forEach(function(x){
         h += '<li><div class="d">'+shortDate(x.date)+'</div><div class="t">'+esc(x.title)+'</div>'+
-             '<div class="m"><button class="btn ghost small" data-backlog="'+x.date+'">Log</button></div></li>';
+             '<div class="m">'+backlogCell(x.date)+'</div></li>';
       });
       h += '</ul>';
     }
     p.innerHTML = h;
+  }
+
+  function editLink(td){
+    if(!S.writable) return "";
+    return '<button class="edit-link" data-edit-today="'+td+'" type="button">Edit</button>';
+  }
+
+  function todayEditForm(td, t){
+    var title = t ? t.title : "";
+    var cat = t ? (t.cat||"") : "";
+    var min = t && t.plannedMin ? t.plannedMin : "";
+    var skip = t ? !!t.skip : false;
+    return '<div class="today edit"><div class="when">'+esc(longDate(td))+'</div>'+
+      '<div class="form" style="padding:0;margin-top:10px">'+
+      '<div class="f"><label for="et-title">Task</label>'+
+      '<input id="et-title" type="text" value="'+esc(title)+'" placeholder="What are you doing today?"></div>'+
+      '<div class="grid2">'+
+        '<div class="f"><label for="et-cat">Category</label>'+
+        '<input id="et-cat" type="text" value="'+esc(cat)+'" placeholder="Section, PT, LR Drill…"></div>'+
+        '<div class="f"><label for="et-min">Planned minutes</label>'+
+        '<input id="et-min" type="number" min="0" step="5" value="'+esc(min)+'"></div>'+
+      '</div>'+
+      '<label class="checkline"><input type="checkbox" id="et-skip"'+(skip?" checked":"")+
+        '> Rest day — nothing planned</label>'+
+      '<div style="display:flex;gap:8px">'+
+        '<button class="btn" data-save-today="'+td+'" type="button">Save</button>'+
+        '<button class="btn ghost" data-cancel-edit type="button">Cancel</button>'+
+      '</div></div></div>';
+  }
+
+  function saveTodayEdit(date){
+    if(!S.db) return;
+    var titleEl = el("et-title"), catEl = el("et-cat"), minEl = el("et-min"), skipEl = el("et-skip");
+    var title = titleEl.value.trim();
+    if(!title){ banner("Give today's task a title before saving."); return; }
+    var existing = S.tasks.get(date) || {};
+    var body = {
+      date: date,
+      title: title,
+      cat: catEl.value.trim(),
+      plannedMin: parseInt(minEl.value,10) || 0,
+      skip: !!skipEl.checked,
+      done: !!existing.done,
+      actualMin: existing.actualMin || 0
+    };
+    banner("");
+    S.db.doc("tasks/"+date).set(body).then(function(){
+      S.tasks.set(date, body);
+      S.editingToday = false;
+      render();
+    }).catch(handleWriteError);
+  }
+
+  function backlogCell(date){
+    if(!S.writable) return "";
+    if(S.pendingBacklog === date){
+      return '<span style="display:inline-flex;gap:5px;align-items:center;white-space:nowrap">'+
+        '<input type="number" class="num" min="0" step="5" id="backlogIn" '+
+        'style="width:58px;padding:5px 6px" inputmode="numeric" placeholder="min">'+
+        '<button class="btn ghost small" data-backlog-save="'+esc(date)+'">Save</button>'+
+        '<button class="del" data-backlog-cancel="1">cancel</button></span>';
+    }
+    return '<button class="btn ghost small" data-backlog="'+esc(date)+'">Log</button>';
   }
 
   function logControls(date, t){
@@ -769,24 +885,7 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
         : 'Loading your entries…')+'</div>';
     } else {
       h += '<div class="entries">';
-      list.forEach(function(e){
-        var pips = "";
-        for(var i=1;i<=5;i++) pips += '<i class="'+(e.level>=i?"on":"")+'"></i>';
-        h += '<div class="entry"><div class="top">'+
-          '<span class="qt">'+esc(e.qtype)+'</span>'+
-          '<span class="pips" title="Level '+(e.level||"?")+'">'+pips+'</span>'+
-          '<span class="tag'+(e.mode==="RC"?" rc":"")+'">'+esc(e.mode||"")+(e.source?" "+esc(e.source):"")+'</span>'+
-          '<span class="meta">'+shortDate(e.date)+
-            (e.timeSec?' &middot; '+secToClock(e.timeSec):'')+
-            (e.test?' &middot; '+esc(e.test):'')+
-            (e.section?' S'+esc(e.section):'')+
-            (e.q?' Q'+esc(e.q):'')+'</span>'+
-          '</div>';
-        if(e.whyWrong) h += '<p class="why"><span class="lbl">Why I picked it / why it was wrong</span>'+esc(e.whyWrong)+'</p>';
-        if(e.whyRight) h += '<p><span class="lbl">Why the right answer is right</span>'+esc(e.whyRight)+'</p>';
-        if(S.writable) h += '<button class="del" data-deljournal="'+esc(e._id)+'">delete</button>';
-        h += '</div>';
-      });
+      list.forEach(function(e){ h += renderJournalEntry(e); });
       h += '</div>';
     }
     p.innerHTML = h;
@@ -798,6 +897,84 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     if(!mode || !sel) return;
     var list = mode.value === "RC" ? RC_TYPES : LR_TYPES;
     sel.innerHTML = list.map(function(t){ return '<option>'+esc(t)+'</option>'; }).join("");
+  }
+
+  function fillEditTypeSelect(){
+    var mode = el("je-mode"), sel = el("je-type");
+    if(!mode || !sel) return;
+    var list = mode.value === "RC" ? RC_TYPES : LR_TYPES;
+    sel.innerHTML = list.map(function(t){ return '<option>'+esc(t)+'</option>'; }).join("");
+  }
+
+  function renderJournalEntry(e){
+    var pips = "";
+    for(var i=1;i<=5;i++) pips += '<i class="'+(e.level>=i?"on":"")+'"></i>';
+    var head = '<div class="top">'+
+      '<span class="qt">'+esc(e.qtype)+'</span>'+
+      '<span class="pips" title="Level '+(e.level||"?")+'">'+pips+'</span>'+
+      '<span class="tag'+(e.mode==="RC"?" rc":"")+'">'+esc(e.mode||"")+(e.source?" "+esc(e.source):"")+'</span>'+
+      '<span class="meta">'+shortDate(e.date)+
+        (e.timeSec?' &middot; '+secToClock(e.timeSec):'')+
+        (e.test?' &middot; '+esc(e.test):'')+
+        (e.section?' S'+esc(e.section):'')+
+        (e.q?' Q'+esc(e.q):'')+'</span>'+
+      '</div>';
+
+    if(S.editingJournalId === e._id){
+      return '<div class="entry">'+head+journalEditForm(e)+'</div>';
+    }
+
+    var h = '<div class="entry">'+head;
+    if(e.whyWrong) h += '<p class="why"><span class="lbl">Why I picked it / why it was wrong</span>'+esc(e.whyWrong)+'</p>';
+    if(e.whyRight) h += '<p><span class="lbl">Why the right answer is right</span>'+esc(e.whyRight)+'</p>';
+    if(S.writable){
+      if(S.pendingDelete && S.pendingDelete.col==="journal" && S.pendingDelete.id===e._id){
+        h += '<div class="confirm-del">Delete this entry?'+
+          '<button class="btn danger small" data-confirmdel="1">Yes, delete</button>'+
+          '<button class="del" data-canceldel="1">cancel</button></div>';
+      } else {
+        h += '<div class="entry-actions">'+
+          '<button class="del" data-editjournal="'+esc(e._id)+'">edit</button>'+
+          '<button class="del" data-deljournal="'+esc(e._id)+'">delete</button></div>';
+      }
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function journalEditForm(e){
+    var typeList = (e.mode === "RC" ? RC_TYPES : LR_TYPES).slice();
+    if(e.qtype && typeList.indexOf(e.qtype) === -1) typeList.push(e.qtype);
+    return '<div class="form" style="padding:8px 0 2px">'+
+      '<div class="grid3">'+
+        '<div class="f"><label for="je-date">Date</label><input id="je-date" type="date" value="'+esc(e.date||todayYmd())+'"></div>'+
+        '<div class="f"><label for="je-mode">Section</label><select id="je-mode">'+
+          '<option value="LR"'+(e.mode!=="RC"?" selected":"")+'>LR</option>'+
+          '<option value="RC"'+(e.mode==="RC"?" selected":"")+'>RC</option></select></div>'+
+        '<div class="f"><label for="je-src">From</label><select id="je-src">'+
+          ["Section","Drill","PT"].map(function(s){ return '<option'+(e.source===s?" selected":"")+'>'+s+'</option>'; }).join("")+
+        '</select></div>'+
+      '</div>'+
+      '<div class="grid3">'+
+        '<div class="f"><label for="je-type">Question type</label><select id="je-type">'+
+          typeList.map(function(t){ return '<option'+(e.qtype===t?" selected":"")+'>'+esc(t)+'</option>'; }).join("")+
+        '</select></div>'+
+        '<div class="f"><label for="je-level">Level 1–5</label><input id="je-level" type="number" min="1" max="5" inputmode="numeric" value="'+(e.level||"")+'"></div>'+
+        '<div class="f"><label for="je-time">Time (m:ss)</label><input id="je-time" type="text" placeholder="1:34" value="'+esc(e.timeSec?secToClock(e.timeSec):"")+'"></div>'+
+      '</div>'+
+      '<div class="grid3">'+
+        '<div class="f"><label for="je-test">Test</label><input id="je-test" type="text" placeholder="PT 155" value="'+esc(e.test||"")+'"></div>'+
+        '<div class="f"><label for="je-section">Section</label><input id="je-section" type="text" placeholder="1" value="'+esc(e.section||"")+'"></div>'+
+        '<div class="f"><label for="je-q">Question</label><input id="je-q" type="text" placeholder="14" value="'+esc(e.q||"")+'"></div>'+
+      '</div>'+
+      '<div class="f"><label for="je-wrong">Why my answer looked right, and why it was wrong</label>'+
+        '<textarea id="je-wrong" rows="3">'+esc(e.whyWrong||"")+'</textarea></div>'+
+      '<div class="f"><label for="je-right">Why the right answer is right</label>'+
+        '<textarea id="je-right" rows="3">'+esc(e.whyRight||"")+'</textarea></div>'+
+      '<div style="display:flex;gap:8px">'+
+        '<button class="btn" data-savejournal="'+esc(e._id)+'">Save changes</button>'+
+        '<button class="btn ghost" data-canceleditjournal="1">Cancel</button></div>'+
+    '</div>';
   }
 
   /* ---------- scores ---------- */
@@ -879,10 +1056,19 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       h += '<td class="n">'+(s.timeSec?secToClock(s.timeSec):"—")+'</td>'+
         '<td class="n">'+(s.br?esc(s.br):"—")+'</td>'+
         '<td class="note">'+esc(s.note||"")+'</td>'+
-        (S.writable?'<td><button class="del" data-delscore="'+esc(s._id)+'">×</button></td>':'')+
+        (S.writable?scoreDeleteCell(s):'')+
         '</tr>';
     });
     return h+'</tbody></table></div>';
+  }
+
+  function scoreDeleteCell(s){
+    if(S.pendingDelete && S.pendingDelete.col==="scores" && S.pendingDelete.id===s._id){
+      return '<td style="white-space:normal"><span class="confirm-del" style="margin-top:0">Delete?'+
+        '<button class="btn danger small" data-confirmdel="1">Yes</button>'+
+        '<button class="del" data-canceldel="1">cancel</button></span></td>';
+    }
+    return '<td><button class="del" data-delscore="'+esc(s._id)+'">×</button></td>';
   }
 
   function sparkline(rows){
@@ -1254,7 +1440,7 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
         rows += '<li class="'+cls+'"><div class="d">'+dayLabel(ds)+'</div>'+
           '<div class="t">'+esc(t ? t.title : "Nothing scheduled")+'</div>'+
           '<div class="mins">'+(cls==="gap" && S.writable
-            ? '<button class="btn ghost small" data-backlog="'+ds+'">Log</button>'
+            ? backlogCell(ds)
             : esc(mins))+'</div></li>';
       }
 
@@ -1324,6 +1510,30 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       });
       var d = document.querySelector("#pane-journal details.add");
       if(d) d.open = false;
+    }).catch(handleWriteError);
+  }
+
+  function saveJournalEdit(id){
+    if(!S.db) return;
+    var mode = el("je-mode").value;
+    var body = {
+      date: el("je-date").value || todayYmd(),
+      mode: mode,
+      source: el("je-src").value,
+      qtype: el("je-type").value,
+      level: parseInt(el("je-level").value,10) || null,
+      timeSec: clockToSec(el("je-time").value),
+      test: el("je-test").value.trim(),
+      section: el("je-section").value.trim(),
+      q: el("je-q").value.trim(),
+      whyWrong: el("je-wrong").value.trim(),
+      whyRight: el("je-right").value.trim()
+    };
+    var existing = S.journal.filter(function(e){ return e._id===id; })[0];
+    if(existing && existing.createdAt) body.createdAt = existing.createdAt;
+    S.db.doc("journal/"+id).set(body).then(function(){
+      S.editingJournalId = null;
+      render();
     }).catch(handleWriteError);
   }
 
@@ -1437,8 +1647,10 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     var t = ev.target;
     if(t.closest && t.closest("#backupBtn")){ backupData(); return; }
     if(t.closest && t.closest("#restoreBtn")){ el("restoreFile").click(); return; }
+    if(t.closest && t.closest("#widthBtn")){ cycleWidth(); return; }
     if(t.matches("nav.tabs button")){
       S.tab = t.getAttribute("data-tab");
+      S.pendingDelete = null; S.editingJournalId = null; S.pendingBacklog = null; S.editingToday = false;
       document.querySelectorAll("nav.tabs button").forEach(function(b){
         b.setAttribute("aria-selected", b===t ? "true" : "false");
       });
@@ -1451,6 +1663,7 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     if(t.hasAttribute("data-mode")){
       S.mode = t.getAttribute("data-mode");
       S.jFilter = "all";
+      S.pendingDelete = null; S.editingJournalId = null;
       render();
       return;
     }
@@ -1461,27 +1674,56 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       return;
     }
     if(t.hasAttribute("data-undo")){ undoDay(t.getAttribute("data-undo")); return; }
+    if(t.hasAttribute("data-edit-today")){ S.editingToday = true; render(); return; }
+    if(t.hasAttribute("data-cancel-edit")){ S.editingToday = false; render(); return; }
+    if(t.hasAttribute("data-save-today")){ saveTodayEdit(t.getAttribute("data-save-today")); return; }
     if(t.hasAttribute("data-backlog")){
-      var date = t.getAttribute("data-backlog");
-      var task = S.tasks.get(date);
-      var ans = window.prompt("Minutes studied on "+shortDate(date)+"?", task && task.plannedMin ? task.plannedMin : "");
-      if(ans!==null) logDay(date, parseInt(ans,10)||0);
+      S.pendingBacklog = t.getAttribute("data-backlog");
+      render();
       return;
     }
+    if(t.hasAttribute("data-backlog-save")){
+      var bdate = t.getAttribute("data-backlog-save");
+      var bin = el("backlogIn");
+      logDay(bdate, bin ? (parseInt(bin.value,10)||0) : 0);
+      S.pendingBacklog = null;
+      render();
+      return;
+    }
+    if(t.hasAttribute("data-backlog-cancel")){ S.pendingBacklog = null; render(); return; }
     if(t.id === "j-save"){ saveJournal(); return; }
     if(t.id === "s-save"){ saveScore(); return; }
+    if(t.hasAttribute("data-editjournal")){
+      S.editingJournalId = t.getAttribute("data-editjournal");
+      S.pendingDelete = null;
+      render();
+      return;
+    }
+    if(t.hasAttribute("data-canceleditjournal")){ S.editingJournalId = null; render(); return; }
+    if(t.hasAttribute("data-savejournal")){ saveJournalEdit(t.getAttribute("data-savejournal")); return; }
     if(t.hasAttribute("data-deljournal")){
-      if(window.confirm("Delete this entry?")) S.db.doc("journal/"+t.getAttribute("data-deljournal")).delete().catch(handleWriteError);
+      S.pendingDelete = {col:"journal", id:t.getAttribute("data-deljournal")};
+      render();
       return;
     }
     if(t.hasAttribute("data-delscore")){
-      if(window.confirm("Delete this score?")) S.db.doc("scores/"+t.getAttribute("data-delscore")).delete().catch(handleWriteError);
+      S.pendingDelete = {col:"scores", id:t.getAttribute("data-delscore")};
+      render();
       return;
     }
+    if(t.hasAttribute("data-confirmdel")){
+      var pd = S.pendingDelete;
+      S.pendingDelete = null;
+      if(pd) S.db.doc(pd.col+"/"+pd.id).delete().catch(handleWriteError);
+      render();
+      return;
+    }
+    if(t.hasAttribute("data-canceldel")){ S.pendingDelete = null; render(); return; }
   });
 
   document.addEventListener("change", function(ev){
     if(ev.target.id === "j-mode"){ fillTypeSelect(); return; }
+    if(ev.target.id === "je-mode"){ fillEditTypeSelect(); return; }
     if(ev.target.id === "j-filter"){ S.jFilter = ev.target.value; renderJournal(); return; }
     if(ev.target.id === "restoreFile"){
       var f = ev.target.files && ev.target.files[0];
@@ -1509,6 +1751,7 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
 
   /* ---------- boot ---------- */
   renderCountdown();
+  updateWidthLabel();
   initChartHover();
   el("pane-today").innerHTML = '<div class="empty">Loading your schedule…</div>';
 
