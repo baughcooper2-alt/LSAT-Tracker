@@ -1564,6 +1564,94 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     }).catch(handleWriteError);
   }
 
+  /* ---------- standalone storage (used outside the Claude artifact host) ---------- */
+  // Same doc/collection/onSnapshot/get/set/delete/add shape as the real db capability,
+  // backed by localStorage instead, so subscribe()/logDay()/saveJournal()/etc. work
+  // completely unchanged whichever one is active.
+  function localDb(){
+    var STORAGE_KEY = "lsat-tracker-data";
+    var store = {tasks:{}, journal:{}, scores:{}, meta:{}};
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        ["tasks","journal","scores","meta"].forEach(function(k){
+          if(parsed[k] && typeof parsed[k]==="object") store[k] = parsed[k];
+        });
+      }
+    }catch(e){}
+
+    var docListeners = {}, colListeners = {};
+
+    function persist(){
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }catch(e){}
+    }
+    function splitPath(path){
+      var i = path.indexOf("/");
+      return i<0 ? [path, ""] : [path.slice(0,i), path.slice(i+1)];
+    }
+    function docSnap(col, id){
+      var exists = !!(store[col] && Object.prototype.hasOwnProperty.call(store[col], id));
+      return {exists:exists, data:function(){ return exists ? store[col][id] : null; }};
+    }
+    function colSnap(col){
+      var bucket = store[col] || {};
+      return {docs: Object.keys(bucket).map(function(id){
+        var data = bucket[id];
+        return {id:id, data:function(){ return data; }};
+      })};
+    }
+    function notify(col, id){
+      (docListeners[col+"/"+id]||[]).forEach(function(cb){ cb(docSnap(col,id)); });
+      (colListeners[col]||[]).forEach(function(cb){ cb(colSnap(col)); });
+    }
+    function genId(){ return "l"+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+    return {
+      doc: function(path){
+        var parts = splitPath(path), col = parts[0], id = parts[1];
+        return {
+          onSnapshot: function(cb){
+            var key = col+"/"+id;
+            (docListeners[key] = docListeners[key]||[]).push(cb);
+            cb(docSnap(col, id));
+          },
+          get: function(){ return Promise.resolve(docSnap(col, id)); },
+          set: function(body){
+            store[col] = store[col] || {};
+            store[col][id] = body;
+            persist();
+            notify(col, id);
+            return Promise.resolve();
+          },
+          delete: function(){
+            if(store[col]) delete store[col][id];
+            persist();
+            notify(col, id);
+            return Promise.resolve();
+          }
+        };
+      },
+      collection: function(col){
+        return {
+          get: function(){ return Promise.resolve(colSnap(col)); },
+          onSnapshot: function(cb){
+            (colListeners[col] = colListeners[col]||[]).push(cb);
+            cb(colSnap(col));
+          },
+          add: function(body){
+            var id = genId();
+            store[col] = store[col] || {};
+            store[col][id] = body;
+            persist();
+            notify(col, id);
+            return Promise.resolve({id:id});
+          }
+        };
+      }
+    };
+  }
+
   /* ---------- backup / restore ---------- */
   function stripId(obj){
     var c = Object.assign({}, obj);
@@ -1582,13 +1670,23 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       scores: S.scores.map(function(s){ var c=Object.assign({},s); c.id=c._id; delete c._id; return c; })
     };
     var json = JSON.stringify(data, null, 2);
+    var filename = "lsat-tracker-backup-"+todayYmd()+".json";
     try{
       if(!window.claude || typeof window.claude.use !== "function") throw new Error("no runtime");
       var downloads = await window.claude.use("downloads");
       if(!downloads) throw new Error("no downloads");
-      await downloads.save({filename:"lsat-tracker-backup-"+todayYmd()+".json", data:json});
+      await downloads.save({filename:filename, data:json});
     }catch(e){
-      banner("Backing up isn't available in this view.");
+      try{
+        var blob = new Blob([json], {type:"application/json"});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      }catch(e2){
+        banner("Backing up isn't available in this view.");
+      }
     }
   }
 
@@ -1756,28 +1854,31 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
   el("pane-today").innerHTML = '<div class="empty">Loading your schedule…</div>';
 
   (async function(){
-    var db = null;
+    var db = null, usingClaude = false;
     try{
       if(!window.claude || typeof window.claude.use !== "function") throw new Error("no runtime");
       db = await window.claude.use("db");
+      if(db) usingClaude = true;
     }catch(e){ db = null; }
 
-    if(!db){
-      S.db = null; S.writable = false;
-      el("pane-today").innerHTML =
-        '<div class="empty">Saved data isn\'t available in this view. Open the artifact directly to use the tracker.</div>';
-      return;
-    }
+    // Outside the Claude artifact host (GitHub Pages, a plain server, a local
+    // file) there's no window.claude — fall back to a browser-local store so
+    // the tracker still works, just per-browser instead of synced.
+    if(!db) db = localDb();
+
     S.db = db;
+    S.usingClaude = usingClaude;
     subscribe();
 
-    try{
-      var user = await window.claude.use("user");
-      if(user && typeof user.can === "function"){
-        var can = await user.can("data.write");
-        if(can === false){ S.writable = false; render(); }
-      }
-    }catch(e){ /* permission unknown — keep inputs enabled, a rejected write handles it */ }
+    if(usingClaude){
+      try{
+        var user = await window.claude.use("user");
+        if(user && typeof user.can === "function"){
+          var can = await user.can("data.write");
+          if(can === false){ S.writable = false; render(); }
+        }
+      }catch(e){ /* permission unknown — keep inputs enabled, a rejected write handles it */ }
+    }
   })();
 })();
 </script>

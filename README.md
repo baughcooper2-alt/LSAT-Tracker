@@ -19,25 +19,26 @@ Built to replace a spreadsheet, so everything is one HTML file with no build ste
 An LR / RC toggle carries across Wrong answers, Scores, and Patterns. Full practice
 tests sit outside that split, since a PT score isn't one section type.
 
-"Back up data" (top right) exports every collection — config, tasks, journal, scores —
-as one JSON file via the artifact host's `downloads` capability. "Restore backup" reads
-a JSON file of that same shape back in: tasks and journal/score entries with a matching
-date or id are overwritten, everything else is added.
+## Running it
 
-## Important: this needs the Claude artifact runtime
+`index.html` works two ways, and detects which one it's in automatically:
 
-The page stores data through `window.claude.use("db")`, a capability provided by the
-Claude artifact host. **Opening `index.html` from a file system, a plain web server, or
-GitHub Pages will not work** — `window.claude` is undefined there, so the page loads
-and shows an "isn't available in this view" message with no data.
+- **Inside a Claude artifact.** If `window.claude.use("db")` resolves, the page uses the
+  Claude artifact host's `db` capability. Data lives there, synced across every view of
+  that artifact.
+- **Standalone** — opened from GitHub Pages, a plain web server, or straight off disk.
+  `window.claude` doesn't exist in that context, so the page falls back to a `localDb()`
+  shim (same `doc`/`collection`/`onSnapshot`/`get`/`set`/`delete`/`add` shape as the real
+  capability, so every render/write function runs unmodified) backed by the browser's
+  `localStorage`. Data then lives per-browser, not synced anywhere — clearing site data
+  or switching browsers starts you over.
 
-This repository is therefore useful for version history and editing the source, not as
-a deployable site. To run it, publish `index.html` as a Claude artifact with the `db`
-capability declared.
-
-Making it standalone would mean swapping the storage layer for `localStorage` or a
-backend of your own. The read and write calls are isolated in three places — `subscribe()`,
-`logDay()`/`undoDay()`, and `saveJournal()`/`saveScore()` — so it's a contained change.
+"Back up data" exports every collection as one JSON file — through the artifact host's
+`downloads` capability where available, or a plain `<a download>` blob otherwise. "Restore
+backup" reads a file of that same shape back in: tasks and journal/score entries with a
+matching date or id are overwritten, everything else is added. Backup/restore is how you
+move data between the two modes — e.g. export from the Claude artifact, then restore into
+a GitHub Pages copy, or vice versa.
 
 ## Data model
 
