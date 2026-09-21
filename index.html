@@ -1652,6 +1652,171 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
     };
   }
 
+  /* ---------- Vercel + Neon storage (used when a /api backend is deployed) ---------- */
+  // Same doc/collection/onSnapshot/get/set/delete/add shape again, this time backed by
+  // the REST endpoints under /api. Reads are cached and pushed to listeners on load, on
+  // every write, and on a periodic poll (so a second device/tab shows up here too).
+  function apiDb(){
+    var cache = {tasks:{}, journal:{}, scores:{}};
+    var config = null;
+    var docListeners = {}, colListeners = {};
+    var pending = {};
+
+    function colSnap(col){
+      var bucket = cache[col] || {};
+      return {docs: Object.keys(bucket).map(function(id){
+        var data = bucket[id];
+        return {id:id, data:function(){ return data; }};
+      })};
+    }
+    function configSnap(){
+      return {exists: !!config, data:function(){ return config; }};
+    }
+    function notifyCol(col){
+      (colListeners[col]||[]).forEach(function(x){ x.cb(colSnap(col)); });
+    }
+    function notifyConfig(){
+      (docListeners["meta/config"]||[]).forEach(function(x){ x.cb(configSnap()); });
+    }
+    function notifyDocFallback(col, id){
+      var key = col+"/"+id;
+      (docListeners[key]||[]).forEach(function(x){
+        var exists = cache[col] && Object.prototype.hasOwnProperty.call(cache[col], id);
+        x.cb({exists:exists, data:function(){ return exists ? cache[col][id] : null; }});
+      });
+    }
+    function loadCollection(col){
+      if(pending[col]) return pending[col];
+      var idField = col==="tasks" ? "date" : "id";
+      pending[col] = fetch("/api/"+col).then(function(res){
+        if(!res.ok) throw new Error("http "+res.status);
+        return res.json();
+      }).then(function(rows){
+        var bucket = {};
+        rows.forEach(function(r){ bucket[r[idField]] = r; });
+        cache[col] = bucket;
+        notifyCol(col);
+      }).catch(function(err){
+        (colListeners[col]||[]).forEach(function(x){ if(x.errCb) x.errCb(err); });
+        throw err;
+      });
+      return pending[col];
+    }
+    function loadConfig(){
+      if(pending.meta) return pending.meta;
+      pending.meta = fetch("/api/config").then(function(res){
+        if(!res.ok) throw new Error("http "+res.status);
+        return res.json();
+      }).then(function(data){
+        config = data;
+        notifyConfig();
+      }).catch(function(err){
+        (docListeners["meta/config"]||[]).forEach(function(x){ if(x.errCb) x.errCb(err); });
+        throw err;
+      });
+      return pending.meta;
+    }
+
+    loadConfig().catch(function(){});
+    ["tasks","journal","scores"].forEach(function(c){ loadCollection(c).catch(function(){}); });
+    setInterval(function(){
+      pending = {};
+      loadConfig().catch(function(){});
+      ["tasks","journal","scores"].forEach(function(c){ loadCollection(c).catch(function(){}); });
+    }, 20000);
+
+    return {
+      doc: function(path){
+        var i = path.indexOf("/"), col = path.slice(0,i), id = path.slice(i+1);
+        if(col === "meta"){
+          return {
+            onSnapshot: function(cb, errCb){
+              (docListeners["meta/config"] = docListeners["meta/config"]||[]).push({cb:cb, errCb:errCb});
+              loadConfig().then(function(){ cb(configSnap()); }).catch(function(){});
+            },
+            get: function(){
+              return loadConfig().then(configSnap).catch(function(){ return configSnap(); });
+            },
+            set: function(body){
+              return fetch("/api/config", {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)})
+                .then(function(r){ if(!r.ok) throw new Error("save failed"); config = body; notifyConfig(); });
+            },
+            delete: function(){ return Promise.resolve(); }
+          };
+        }
+        return {
+          onSnapshot: function(cb, errCb){
+            var key = col+"/"+id;
+            (docListeners[key] = docListeners[key]||[]).push({cb:cb, errCb:errCb});
+            loadCollection(col).then(function(){ notifyDocFallback(col, id); }).catch(function(){});
+          },
+          get: function(){
+            return loadCollection(col).then(function(){
+              var exists = cache[col] && Object.prototype.hasOwnProperty.call(cache[col], id);
+              return {exists:exists, data:function(){ return exists ? cache[col][id] : null; }};
+            }).catch(function(){ return {exists:false, data:function(){ return null; }}; });
+          },
+          set: function(body){
+            var url = "/api/"+col+"/"+encodeURIComponent(id);
+            return fetch(url, {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)})
+              .then(function(r){
+                if(!r.ok) throw new Error("save failed");
+                cache[col] = cache[col] || {};
+                cache[col][id] = col==="tasks" ? body : Object.assign({}, body, {id:id});
+                notifyCol(col);
+                notifyDocFallback(col, id);
+              });
+          },
+          delete: function(){
+            var url = "/api/"+col+"/"+encodeURIComponent(id);
+            return fetch(url, {method:"DELETE"}).then(function(r){
+              if(!r.ok) throw new Error("delete failed");
+              if(cache[col]) delete cache[col][id];
+              notifyCol(col);
+              notifyDocFallback(col, id);
+            });
+          }
+        };
+      },
+      collection: function(col){
+        return {
+          get: function(){
+            return loadCollection(col).then(function(){ return colSnap(col); }).catch(function(){ return colSnap(col); });
+          },
+          onSnapshot: function(cb, errCb){
+            (colListeners[col] = colListeners[col]||[]).push({cb:cb, errCb:errCb});
+            loadCollection(col).then(function(){ cb(colSnap(col)); }).catch(function(){});
+          },
+          add: function(body){
+            return fetch("/api/"+col, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)})
+              .then(function(r){ if(!r.ok) throw new Error("save failed"); return r.json(); })
+              .then(function(res){
+                var id = res.id;
+                cache[col] = cache[col] || {};
+                cache[col][id] = Object.assign({}, body, {id:id});
+                notifyCol(col);
+                return {id:id};
+              });
+          }
+        };
+      }
+    };
+  }
+
+  function detectApiDb(){
+    var ctrl = (typeof AbortController!=="undefined") ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 3000) : null;
+    return fetch("/api/config", {method:"GET", signal: ctrl ? ctrl.signal : undefined})
+      .then(function(res){
+        if(timer) clearTimeout(timer);
+        if(res.status === 404) return null;
+        return apiDb();
+      }).catch(function(){
+        if(timer) clearTimeout(timer);
+        return null;
+      });
+  }
+
   /* ---------- backup / restore ---------- */
   function stripId(obj){
     var c = Object.assign({}, obj);
@@ -1861,9 +2026,11 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       if(db) usingClaude = true;
     }catch(e){ db = null; }
 
-    // Outside the Claude artifact host (GitHub Pages, a plain server, a local
-    // file) there's no window.claude — fall back to a browser-local store so
-    // the tracker still works, just per-browser instead of synced.
+    // Outside the Claude artifact host: if this deployment has a /api backend
+    // (Vercel + Neon), use that — real, synced-across-devices storage. Otherwise
+    // (GitHub Pages, a plain server, a local file) fall back to a browser-local
+    // store so the tracker still works, just per-browser instead of synced.
+    if(!db) db = await detectApiDb();
     if(!db) db = localDb();
 
     S.db = db;
