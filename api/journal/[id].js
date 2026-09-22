@@ -7,20 +7,32 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'PUT') {
       const b = req.body || {};
+      // Upsert, not a plain UPDATE: restoring a backup calls set() on ids that
+      // may not exist yet in this database, and a bare UPDATE against a
+      // nonexistent row silently touches zero rows instead of inserting one.
       await sql`
-        UPDATE journal SET
-          date = ${b.date},
-          mode = ${b.mode || null},
-          source = ${b.source || null},
-          qtype = ${b.qtype || null},
-          level = ${b.level ?? null},
-          time_sec = ${b.timeSec ?? null},
-          test = ${b.test || null},
-          section = ${b.section || null},
-          q = ${b.q || null},
-          why_wrong = ${b.whyWrong || null},
-          why_right = ${b.whyRight || null}
-        WHERE id = ${id}
+        INSERT INTO journal (
+          id, date, mode, source, qtype, level, time_sec, test, section, q,
+          why_wrong, why_right, created_at
+        )
+        VALUES (
+          ${id}, ${b.date}, ${b.mode || null}, ${b.source || null}, ${b.qtype || null},
+          ${b.level ?? null}, ${b.timeSec ?? null}, ${b.test || null}, ${b.section || null},
+          ${b.q || null}, ${b.whyWrong || null}, ${b.whyRight || null},
+          ${b.createdAt || Date.now()}
+        )
+        ON CONFLICT (id) DO UPDATE SET
+          date = EXCLUDED.date,
+          mode = EXCLUDED.mode,
+          source = EXCLUDED.source,
+          qtype = EXCLUDED.qtype,
+          level = EXCLUDED.level,
+          time_sec = EXCLUDED.time_sec,
+          test = EXCLUDED.test,
+          section = EXCLUDED.section,
+          q = EXCLUDED.q,
+          why_wrong = EXCLUDED.why_wrong,
+          why_right = EXCLUDED.why_right
       `;
       return res.status(200).json({ ok: true });
     }
