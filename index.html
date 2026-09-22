@@ -1685,6 +1685,16 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
         x.cb({exists:exists, data:function(){ return exists ? cache[col][id] : null; }});
       });
     }
+    // Re-rendering on every poll tick — even when the fetched data is byte-for-byte
+    // identical to what's already cached — was blowing away any open add-entry form
+    // mid-typing, since renderJournal()/renderScores() rebuild that <details> element
+    // from scratch on every render() and it has no "stay open, keep my draft" state.
+    // Only notify listeners (which is what triggers render()) when something actually
+    // changed, so typing in a form is undisturbed by a background poll that found
+    // nothing new.
+    function sameJson(a, b){
+      try{ return JSON.stringify(a) === JSON.stringify(b); }catch(e){ return false; }
+    }
     function loadCollection(col){
       if(pending[col]) return pending[col];
       var idField = col==="tasks" ? "date" : "id";
@@ -1694,8 +1704,9 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       }).then(function(rows){
         var bucket = {};
         rows.forEach(function(r){ bucket[r[idField]] = r; });
+        var changed = !sameJson(bucket, cache[col]);
         cache[col] = bucket;
-        notifyCol(col);
+        if(changed) notifyCol(col);
       }).catch(function(err){
         (colListeners[col]||[]).forEach(function(x){ if(x.errCb) x.errCb(err); });
         throw err;
@@ -1708,8 +1719,9 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
         if(!res.ok) throw new Error("http "+res.status);
         return res.json();
       }).then(function(data){
+        var changed = !sameJson(data, config);
         config = data;
-        notifyConfig();
+        if(changed) notifyConfig();
       }).catch(function(err){
         (docListeners["meta/config"]||[]).forEach(function(x){ if(x.errCb) x.errCb(err); });
         throw err;
@@ -1723,7 +1735,7 @@ td.n{font-family:'Newsreader',Georgia,serif;font-variant-numeric:tabular-nums}
       pending = {};
       loadConfig().catch(function(){});
       ["tasks","journal","scores"].forEach(function(c){ loadCollection(c).catch(function(){}); });
-    }, 20000);
+    }, 45000);
 
     return {
       doc: function(path){
